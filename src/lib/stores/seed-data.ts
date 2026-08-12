@@ -1,4 +1,4 @@
-import type { Task, Expense, StudyGoal, Note } from "@/lib/types";
+import type { Task, Expense, StudyGoal, StudySession, Note } from "@/lib/types";
 import { daysFromTodayISO, todayISO } from "@/lib/format";
 
 /**
@@ -113,46 +113,76 @@ export function createSeedExpenses(): Expense[] {
   ];
 }
 
+/** Build N study sessions across the last `days` (deterministic, varied minutes). */
+function buildSessions(
+  days: number,
+  pattern: number[],
+  startIndex = 0
+): StudySession[] {
+  const out: StudySession[] = [];
+  for (let i = 0; i < days; i++) {
+    const mins = pattern[(i + startIndex) % pattern.length];
+    if (mins > 0) {
+      out.push({
+        id: `seed-sess-${startIndex}-${i}`,
+        date: daysFromTodayISO(-(days - 1 - i)),
+        minutes: mins,
+      });
+    }
+  }
+  return out;
+}
+
 export function createSeedGoals(): StudyGoal[] {
+  // 1) The headline plan: "Learn DSA in 2 months", 2h/day, ~12 days in,
+  //    slightly behind (a couple of skipped days) so the UI shows a deficit.
+  const dsaDays = 12;
+  const dsaSessions = buildSessions(dsaDays, [120, 120, 90, 0, 120, 120, 60], 0);
+
+  // 2) DBMS exam prep, 1h/day, ~5 days in, on track.
+  const dbmsDays = 5;
+  const dbmsSessions = buildSessions(dbmsDays, [60, 60, 45, 60, 60], 7);
+
+  // 3) A completed React plan (target date passed, sessions fill the span).
+  const reactDays = 14;
+  const reactSessions = buildSessions(
+    reactDays,
+    [30, 30, 30, 30, 30, 30, 30],
+    14
+  );
+
   return [
     {
       id: "seed-goal-1",
-      subject: "Java",
-      topic: "Collections Framework",
-      progress: 70,
-      targetDate: daysFromTodayISO(6),
+      subject: "DSA",
+      topic: "Learn DSA in 2 months",
+      startDate: daysFromTodayISO(-(dsaDays - 1)),
+      targetDate: daysFromTodayISO(48),
+      dailyMinutesGoal: 120, // 2h/day
       priority: "High",
-      completed: false,
+      sessions: dsaSessions,
       createdAt: nowISO(),
     },
     {
       id: "seed-goal-2",
       subject: "DBMS",
-      topic: "Normalization & Joins",
-      progress: 45,
-      targetDate: daysFromTodayISO(9),
+      topic: "DBMS exam prep",
+      startDate: daysFromTodayISO(-(dbmsDays - 1)),
+      targetDate: daysFromTodayISO(20),
+      dailyMinutesGoal: 60, // 1h/day
       priority: "Medium",
-      completed: false,
+      sessions: dbmsSessions,
       createdAt: nowISO(),
     },
     {
       id: "seed-goal-3",
-      subject: "OS",
-      topic: "Process Scheduling",
-      progress: 90,
-      targetDate: daysFromTodayISO(3),
-      priority: "Medium",
-      completed: false,
-      createdAt: nowISO(),
-    },
-    {
-      id: "seed-goal-4",
-      subject: "Web Dev",
-      topic: "React hooks revision",
-      progress: 100,
+      subject: "React",
+      topic: "React mastery sprint",
+      startDate: daysFromTodayISO(-reactDays),
       targetDate: daysFromTodayISO(-1),
+      dailyMinutesGoal: 30,
       priority: "Low",
-      completed: true,
+      sessions: reactSessions,
       createdAt: nowISO(),
     },
   ];

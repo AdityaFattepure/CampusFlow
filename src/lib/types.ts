@@ -43,15 +43,29 @@ export interface Expense {
   createdAt: string;
 }
 
+export interface StudySession {
+  id: string;
+  date: string; // ISO yyyy-mm-dd
+  minutes: number;
+  note?: string;
+}
+
+/**
+ * A study plan models a real commitment: learn <subject> for <dailyMinutesGoal>
+ * every day between <startDate> and <targetDate>. Progress is derived from the
+ * logged <sessions>, not a hand-set percentage — so "am I on track?" is always
+ * a truthful, computed answer.
+ */
 export interface StudyGoal {
   id: string;
   subject: string;
-  topic: string;
-  progress: number; // 0 - 100
-  targetDate: string; // ISO yyyy-mm-dd
+  topic: string; // the overall aim, e.g. "Learn DSA in 2 months"
+  startDate: string; // ISO yyyy-mm-dd
+  targetDate: string; // ISO yyyy-mm-dd (deadline)
+  dailyMinutesGoal: number; // e.g. 120 = 2h/day
   priority: Priority;
-  completed: boolean;
-  createdAt: string;
+  sessions: StudySession[];
+  createdAt: string; // ISO datetime
 }
 
 export const NOTE_CATEGORIES = [
@@ -83,8 +97,10 @@ export type ModuleKey =
 // Input shapes (omit generated fields)
 export type TaskInput = Omit<Task, "id" | "createdAt" | "completed">;
 export type ExpenseInput = Omit<Expense, "id" | "createdAt">;
-export type StudyGoalInput = Omit<
-  StudyGoal,
-  "id" | "createdAt" | "completed"
-> & { completed?: boolean };
+export type StudyGoalInput = Omit<StudyGoal, "id" | "createdAt" | "sessions">;
+export type StudySessionInput = {
+  date: string;
+  minutes: number;
+  note?: string;
+};
 export type NoteInput = Omit<Note, "id" | "createdAt" | "updatedAt">;

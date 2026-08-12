@@ -48,8 +48,10 @@ import {
   PRIORITY_STYLES,
   TASK_CATEGORY_STYLES,
   formatDate,
+  formatDuration,
   formatINR,
   isSameMonth,
+  planStats,
   relativeDay,
   todayISO,
   daysFromTodayISO,
@@ -59,6 +61,7 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { loadDemoData } from "@/lib/storage/backup";
+import { PixelLandscape } from "@/components/pixel-landscape";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -125,16 +128,25 @@ export function DashboardView({
         fill: EXPENSE_CATEGORY_META[cat].color,
       }));
 
-    const activeGoals = goals.filter((g) => !g.completed);
+    const activeGoals = goals.filter((g) => {
+      const p = planStats(g);
+      return !p.isComplete;
+    });
     const overallProgress =
       goals.length === 0
         ? 0
         : Math.round(
-            goals.reduce((s, g) => s + g.progress, 0) / goals.length
+            goals.reduce((s, g) => s + planStats(g).percent, 0) / goals.length
           );
     const topGoals = [...activeGoals]
-      .sort((a, b) => b.progress - a.progress)
+      .sort((a, b) => planStats(b).percent - planStats(a).percent)
       .slice(0, 4);
+    const studyMinutesToday = goals.reduce(
+      (s, g) => s + planStats(g).minutesToday,
+      0
+    );
+    const studyBehindCount = activeGoals.filter((g) => !planStats(g).onTrack)
+      .length;
 
     const recentNotes = [...notes]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -188,6 +200,8 @@ export function DashboardView({
       notesUpdatedToday,
       priorityAlert,
       isEmpty,
+      studyMinutesToday,
+      studyBehindCount,
     };
   }, [tasks, expenses, goals, notes]);
 
@@ -214,42 +228,9 @@ export function DashboardView({
 
   return (
     <div className="space-y-5">
-      {/* ---------- Pixelscape hero ---------- */}
-      <div
-        className="relative overflow-hidden border-2 border-[var(--pixel-line)] pixel-shadow"
-        style={{
-          background:
-            "linear-gradient(to bottom, var(--accent) 0 38%, var(--primary) 38% 68%, var(--chart-4) 68% 100%)",
-        }}
-      >
-        {/* pixel sun (square + inner block) */}
-        <div
-          className="pointer-events-none absolute right-7 top-5 h-12 w-12 border-2 border-[var(--pixel-line)] bg-background"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute right-10 top-8 h-6 w-6 border-2 border-[var(--pixel-line)] bg-accent"
-          aria-hidden
-        />
-        {/* dither transition bands (pixel color steps) */}
-        <div
-          className="pixel-dither pointer-events-none absolute inset-x-0 top-[34%] h-2 opacity-70"
-          aria-hidden
-        />
-        <div
-          className="pixel-dither pointer-events-none absolute inset-x-0 top-[64%] h-2 opacity-70"
-          aria-hidden
-        />
-        {/* horizon line */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-[68%] h-[2px] bg-[var(--pixel-line)]"
-          aria-hidden
-        />
-        {/* dithered ground strip */}
-        <div
-          className="pixel-dither pointer-events-none absolute inset-x-0 bottom-0 h-7"
-          aria-hidden
-        />
+      {/* ---------- Pixelscape hero (animated parallax landscape) ---------- */}
+      <div className="relative overflow-hidden border-2 border-[var(--pixel-line)] pixel-shadow">
+        <PixelLandscape />
         <div className="relative flex flex-col gap-4 p-6 text-background sm:p-7 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2.5">
             <div className="inline-flex items-center gap-2 border-2 border-[var(--pixel-line)] bg-background px-3 py-1 text-xs font-semibold text-foreground pixel-shadow-sm">
@@ -270,14 +251,22 @@ export function DashboardView({
                 spent this week
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="font-display text-base">{stats.activeGoals.length}</span>
-                active study goal{stats.activeGoals.length === 1 ? "" : "s"}
+                <span className="font-display text-base">
+                  {formatDuration(stats.studyMinutesToday)}
+                </span>
+                studied today
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="font-display text-base">{stats.notesUpdatedToday}</span>
                 note{stats.notesUpdatedToday === 1 ? "" : "s"} updated today
               </span>
             </div>
+            {stats.studyBehindCount > 0 ? (
+              <p className="text-xs font-semibold text-background/95">
+                ⚠ {stats.studyBehindCount} study plan
+                {stats.studyBehindCount === 1 ? "" : "s"} behind — log a session to catch up.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -671,28 +660,49 @@ export function DashboardView({
             {stats.topGoals.length === 0 ? (
               <EmptyState
                 icon={<GraduationCap className="h-5 w-5" />}
-                title="No active study goals"
-                description="Add a goal to start tracking progress."
+                title="No active study plans"
+                description="Create a plan with a daily time goal to start tracking."
               />
             ) : (
               <ul className="space-y-3.5">
-                {stats.topGoals.map((g) => (
-                  <li key={g.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2 font-semibold">
-                        <span className="text-muted-foreground">
-                          {g.subject}
+                {stats.topGoals.map((g) => {
+                  const p = planStats(g);
+                  return (
+                    <li key={g.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex items-center gap-2 font-semibold">
+                          <span className="text-muted-foreground">
+                            {g.subject}
+                          </span>
+                          <span>·</span>
+                          <span className="truncate">{g.topic}</span>
                         </span>
-                        <span>·</span>
-                        <span className="truncate">{g.topic}</span>
-                      </span>
-                      <span className="font-bold tabular-nums text-primary">
-                        {g.progress}%
-                      </span>
-                    </div>
-                    <Progress value={g.progress} className="h-3" />
-                  </li>
-                ))}
+                        <span
+                          className={cn(
+                            "font-bold tabular-nums",
+                            p.onTrack ? "text-primary" : "text-destructive"
+                          )}
+                        >
+                          {p.percent}%
+                        </span>
+                      </div>
+                      <Progress value={p.percent} className="h-3" />
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>
+                          {formatDuration(p.minutesToday)} today ·{" "}
+                          {formatDuration(g.dailyMinutesGoal)} goal
+                        </span>
+                        <span>
+                          {p.isComplete
+                            ? "Complete"
+                            : p.onTrack
+                              ? "On track"
+                              : `Behind ${formatDuration(p.deficitMinutes)}`}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

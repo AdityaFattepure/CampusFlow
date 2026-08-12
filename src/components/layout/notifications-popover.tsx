@@ -11,7 +11,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useTaskStore, useStudyStore } from "@/lib/stores";
-import { todayISO, relativeDay, formatDate } from "@/lib/format";
+import {
+  todayISO,
+  relativeDay,
+  formatDate,
+  formatDuration,
+  planStats,
+} from "@/lib/format";
 import type { ModuleKey } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 
@@ -22,7 +28,10 @@ interface Item {
   tone: "rose" | "amber" | "primary";
 }
 
-function computeItems(tasks: ReturnType<typeof useTaskStore.getState>["tasks"], goals: ReturnType<typeof useStudyStore.getState>["goals"]): Item[] {
+function computeItems(
+  tasks: ReturnType<typeof useTaskStore.getState>["tasks"],
+  goals: ReturnType<typeof useStudyStore.getState>["goals"]
+): Item[] {
   const today = todayISO();
   const out: Item[] = [];
 
@@ -48,13 +57,27 @@ function computeItems(tasks: ReturnType<typeof useTaskStore.getState>["tasks"], 
     }
   }
 
+  // Study check-in reminders — based on the new session-based plan model.
   for (const g of goals) {
-    if (g.completed) continue;
-    if (g.progress < 50) {
+    const p = planStats(g);
+    if (p.isComplete) continue;
+    if (!p.hasStarted) continue; // not started yet
+
+    // Behind on cumulative effort OR hasn't studied today → reminder.
+    if (!p.onTrack) {
       out.push({
         kind: "goal",
-        title: `${g.subject} — ${g.topic}`,
-        meta: `${g.progress}% · due ${formatDate(g.targetDate)}`,
+        title: `${g.subject} — behind by ${formatDuration(p.deficitMinutes)}`,
+        meta: `goal ${formatDuration(g.dailyMinutesGoal)}/day · due ${formatDate(g.targetDate)}`,
+        tone: "rose",
+      });
+    } else if (p.minutesToday < g.dailyMinutesGoal) {
+      out.push({
+        kind: "goal",
+        title: `${g.subject} — ${formatDuration(p.minutesToday)} of ${formatDuration(
+          g.dailyMinutesGoal
+        )} today`,
+        meta: `log a session · ${p.daysRemaining} days left`,
         tone: "amber",
       });
     }

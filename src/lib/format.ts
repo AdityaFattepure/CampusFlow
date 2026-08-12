@@ -2,6 +2,7 @@ import type {
   ExpenseCategory,
   NoteCategory,
   Priority,
+  StudyGoal,
   TaskCategory,
 } from "./types";
 
@@ -147,3 +148,129 @@ export const TASK_CATEGORY_STYLES: Record<TaskCategory, string> = {
     "bg-teal-500/12 text-teal-600 dark:text-teal-300 border-teal-500/25",
   Other: "bg-muted text-muted-foreground border-border",
 };
+
+// ---------------------------------------------------------------------
+// Study-plan helpers. A StudyGoal is a timed commitment: learn <subject>
+// for `dailyMinutesGoal` every day between startDate and targetDate.
+// Progress is derived from logged sessions — never hand-set.
+// ---------------------------------------------------------------------
+
+/** Whole-day difference toISO - fromISO (can be negative). */
+export function daysBetween(fromISO: string, toISO: string): number {
+  const a = new Date(fromISO + "T00:00:00").getTime();
+  const b = new Date(toISO + "T00:00:00").getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** "2h 30m" / "90m" / "2h". Never shows decimals. */
+export function formatDuration(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes || 0));
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  if (h === 0) return `${m}m`;
+  if (rem === 0) return `${h}h`;
+  return `${h}h ${rem}m`;
+}
+
+/** Compact: 120 -> "2h", 90 -> "1.5h", 45 -> "0.75h". */
+export function formatHours(minutes: number): string {
+  const h = (minutes || 0) / 60;
+  return `${h % 1 === 0 ? h : h.toFixed(1)}h`;
+}
+
+export interface PlanStats {
+  totalDays: number; // startDate..targetDate inclusive span
+  daysElapsed: number; // clamped 0..totalDays
+  daysRemaining: number; // clamped >= 0
+  totalMinutesGoal: number; // dailyMinutesGoal * totalDays
+  minutesDone: number; // sum of sessions
+  minutesToday: number; // sessions dated today
+  minutesRemaining: number; // max(0, totalGoal - done)
+  expectedMinutesByToday: number; // dailyGoal * daysElapsed (what you should have done)
+  deficitMinutes: number; // max(0, expected - done) — how far behind
+  onTrack: boolean; // done >= expected
+  percent: number; // done / totalGoal * 100, clamped 0..100
+  streak: number; // consecutive days (ending today or yesterday) with a session
+  isComplete: boolean; // percent >= 100 OR today >= targetDate
+  hasStarted: boolean; // today >= startDate
+}
+
+const dayKey = (d: Date) => {
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 10);
+};
+
+/** Compute every derived stat for a study plan relative to "today". */
+export function planStats(goal: StudyGoal, ref: Date = new Date()): PlanStats {
+  const today = dayKey(ref);
+  const totalDays = Math.max(
+    1,
+    daysBetween(goal.startDate, goal.targetDate) + 1
+  ); // inclusive
+  const rawElapsed = daysBetween(goal.startDate, today) + 1;
+  const daysElapsed = Math.max(0, Math.min(totalDays, rawElapsed));
+  const daysRemaining = Math.max(0, daysBetween(today, goal.targetDate));
+
+  const minutesDone = goal.sessions.reduce((s, x) => s + (x.minutes || 0), 0);
+  const minutesToday = goal.sessions
+    .filter((s) => s.date === today)
+    .reduce((s, x) => s + (x.minutes || 0), 0);
+
+  const totalMinutesGoal = goal.dailyMinutesGoal * totalDays;
+  const minutesRemaining = Math.max(0, totalMinutesGoal - minutesDone);
+  const expectedMinutesByToday = goal.dailyMinutesGoal * daysElapsed;
+  const deficitMinutes = Math.max(0, expectedMinutesByToday - minutesDone);
+  const onTrack = minutesDone >= expectedMinutesByToday;
+  const percent =
+    totalMinutesGoal > 0
+      ? Math.max(0, Math.min(100, Math.round((minutesDone / totalMinutesGoal) * 100)))
+      : 0;
+  const hasStarted = today >= goal.startDate;
+  const isComplete =
+    percent >= 100 || (goal.targetDate && today > goal.targetDate);
+
+  // streak: consecutive days ending today or yesterday with a session > 0
+  const daySet = new Set(
+    goal.sessions.filter((s) => s.minutes > 0).map((s) => s.date)
+  );
+  let streak = 0;
+  let cursor = new Date(ref);
+  if (!daySet.has(dayKey(cursor))) {
+    // grace: if today has none, start from yesterday
+    cursor.setDate(cursor.getDate() - 1);
+    if (!daySet.has(dayKey(cursor))) streak = 0;
+    else {
+      while (daySet.has(dayKey(cursor))) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+    }
+  } else {
+    while (daySet.has(dayKey(cursor))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+  }
+
+  return {
+    totalDays,
+    daysElapsed,
+    daysRemaining,
+    totalMinutesGoal,
+    minutesDone,
+    minutesToday,
+    minutesRemaining,
+    expectedMinutesByToday,
+    deficitMinutes,
+    onTrack,
+    percent,
+    streak,
+    isComplete,
+    hasStarted,
+  };
+}
+
+/** Pixel HP-bar segments for a 0-100 percent value. */
+export function segmentsFor(percent: number, segments = 20): number {
+  return Math.round((Math.max(0, Math.min(100, percent)) / 100) * segments);
+}

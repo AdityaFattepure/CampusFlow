@@ -1,18 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   GraduationCap,
   Plus,
   Pencil,
   Trash2,
-  Target,
   CalendarDays,
-  TrendingUp,
   CheckCircle2,
-  Circle,
   Flame,
+  Clock,
+  Play,
+  AlertTriangle,
+  TrendingUp,
+  History,
 } from "lucide-react";
 
 import { useStudyStore } from "@/lib/stores";
@@ -22,6 +25,10 @@ import {
   relativeDay,
   todayISO,
   daysFromTodayISO,
+  daysBetween,
+  formatDuration,
+  formatHours,
+  planStats,
   PRIORITY_STYLES,
 } from "@/lib/format";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -32,7 +39,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +50,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -51,689 +60,789 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
-
-// --------------------------- form helpers ---------------------------
-
-interface GoalFormState {
-  subject: string;
-  topic: string;
-  priority: Priority;
-  targetDate: string;
-  progress: number;
-}
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 const PRIORITIES: Priority[] = ["Low", "Medium", "High"];
 
-type SortKey = "targetDate" | "progress" | "priority";
+export function StudyView() {
+  const hydrated = useHydrated();
+  const goals = useStudyStore((s) => s.goals);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<StudyGoal | null>(null);
 
-const PRIORITY_RANK: Record<Priority, number> = {
-  High: 0,
-  Medium: 1,
-  Low: 2,
-};
+  const stats = useMemo(() => {
+    const active = goals.filter((g) => !planStats(g).isComplete);
+    const behind = goals.filter((g) => {
+      const p = planStats(g);
+      return !p.isComplete && !p.onTrack;
+    });
+    const minutesToday = goals.reduce(
+      (s, g) => s + planStats(g).minutesToday,
+      0
+    );
+    const dailyGoalTotal = goals
+      .filter((g) => {
+        const p = planStats(g);
+        return !p.isComplete && p.hasStarted;
+      })
+      .reduce((s, g) => s + g.dailyMinutesGoal, 0);
+    const overallPercent =
+      goals.length === 0
+        ? 0
+        : Math.round(
+            goals.reduce((s, g) => s + planStats(g).percent, 0) / goals.length
+        );
+    return {
+      activeCount: active.length,
+      behindCount: behind.length,
+      minutesToday,
+      dailyGoalTotal,
+      overallPercent,
+      total: goals.length,
+    };
+  }, [goals]);
 
-function emptyForm(): GoalFormState {
-  return {
-    subject: "",
-    topic: "",
-    priority: "Medium",
-    targetDate: daysFromTodayISO(7),
-    progress: 0,
+  if (!hydrated) return <StudySkeleton />;
+
+  const openAdd = () => {
+    setEditingGoal(null);
+    setPlanDialogOpen(true);
   };
-}
-
-function goalToForm(g: StudyGoal): GoalFormState {
-  return {
-    subject: g.subject,
-    topic: g.topic,
-    priority: g.priority,
-    targetDate: g.targetDate,
-    progress: g.progress,
-  };
-}
-
-/** A goal is "due this week" if its target date falls within the next 7 days
- * (inclusive of today) and it is not yet completed. */
-function isDueThisWeek(g: StudyGoal): boolean {
-  if (g.completed) return false;
-  const today = todayISO();
-  const week = daysFromTodayISO(7);
-  return g.targetDate >= today && g.targetDate <= week;
-}
-
-function sortGoals(goals: StudyGoal[], key: SortKey): StudyGoal[] {
-  const arr = [...goals];
-  switch (key) {
-    case "progress":
-      return arr.sort(
-        (a, b) => b.progress - a.progress || a.targetDate.localeCompare(b.targetDate)
-      );
-    case "priority":
-      return arr.sort(
-        (a, b) =>
-          PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
-          a.targetDate.localeCompare(b.targetDate)
-      );
-    case "targetDate":
-    default:
-      return arr.sort(
-        (a, b) =>
-          a.targetDate.localeCompare(b.targetDate) || b.progress - a.progress
-      );
-  }
-}
-
-// --------------------------- form dialog ---------------------------
-
-function GoalFormDialog({
-  open,
-  onOpenChange,
-  mode,
-  initial,
-  onSubmit,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  mode: "add" | "edit";
-  initial: GoalFormState;
-  onSubmit: (form: GoalFormState) => void;
-}) {
-  const [form, setForm] = React.useState<GoalFormState>(initial);
-  const [error, setError] = React.useState<string | null>(null);
-
-  // Re-seed the local form whenever the dialog (re-)opens or the seeded
-  // initial value changes (e.g. switching edit targets). While open and the
-  // user is typing, `initial` stays referentially stable so this effect does
-  // not fire and wipe their input.
-  React.useEffect(() => {
-    if (open) {
-      setForm(initial);
-      setError(null);
-    }
-  }, [open, initial]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const subject = form.subject.trim();
-    const topic = form.topic.trim();
-    if (!subject) {
-      setError("Subject is required.");
-      return;
-    }
-    if (!topic) {
-      setError("Topic is required.");
-      return;
-    }
-    setError(null);
-    onSubmit({ ...form, subject, topic });
+  const openEdit = (g: StudyGoal) => {
+    setEditingGoal(g);
+    setPlanDialogOpen(true);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "add" ? "Add study goal" : "Edit study goal"}
-          </DialogTitle>
-          <DialogDescription>
-            {mode === "add"
-              ? "Set a subject, topic, priority and target date to start tracking progress."
-              : "Update the details of your study goal."}
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-5">
+      <ModuleHeader
+        icon={<GraduationCap className="h-5 w-5" />}
+        title="Study Planner"
+        description="Commit to a daily time goal. Log sessions. Stay on track."
+        actions={
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" /> New plan
+          </Button>
+        }
+      />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Featured overall */}
+      <Card className="overflow-hidden">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2">
-            <Label htmlFor="goal-subject">Subject</Label>
-            <Input
-              id="goal-subject"
-              value={form.subject}
-              placeholder="e.g. Java, DBMS, OS"
-              onChange={(e) =>
-                setForm((f) => ({ ...f, subject: e.target.value }))
-              }
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="goal-topic">Topic</Label>
-            <Input
-              id="goal-topic"
-              value={form.topic}
-              placeholder="e.g. Collections Framework"
-              onChange={(e) => setForm((f) => ({ ...f, topic: e.target.value }))}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select
-                value={form.priority}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, priority: v as Priority }))
-                }
-              >
-                <SelectTrigger className="w-full" aria-label="Priority">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5 text-primary" />
+              Overall progress
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="goal-date">Target date</Label>
-              <Input
-                id="goal-date"
-                type="date"
-                value={form.targetDate}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, targetDate: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Progress</Label>
-              <span className="text-sm font-medium tabular-nums">
-                {form.progress}%
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-3xl text-primary">
+                {stats.overallPercent}%
+              </span>
+              <span className="text-sm text-muted-foreground">
+                across {stats.total} plan{stats.total === 1 ? "" : "s"}
               </span>
             </div>
-            <Slider
-              value={[form.progress]}
-              onValueChange={(v) =>
-                setForm((f) => ({ ...f, progress: v[0] ?? 0 }))
-              }
-              min={0}
-              max={100}
-              step={1}
-              aria-label="Goal progress"
-            />
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                <span className="font-bold text-foreground">
+                  {formatDuration(stats.minutesToday)}
+                </span>{" "}
+                studied today
+              </span>
+              <span>
+                goal:{" "}
+                <span className="font-bold text-foreground">
+                  {formatDuration(stats.dailyGoalTotal)}
+                </span>
+                /day
+              </span>
+              <span>
+                <span className="font-bold text-destructive">
+                  {stats.behindCount}
+                </span>{" "}
+                behind
+              </span>
+            </div>
           </div>
+          <div className="w-full sm:w-64">
+            <Progress value={stats.overallPercent} className="h-3" />
+          </div>
+        </CardContent>
+      </Card>
 
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
+      {/* Stat row */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <StatCard
+          icon={<Clock className="h-4 w-4" />}
+          label="Today"
+          value={formatDuration(stats.minutesToday)}
+          tone="primary"
+          display={false}
+          sub={`goal ${formatDuration(stats.dailyGoalTotal)}/day`}
+        />
+        <StatCard
+          icon={<Play className="h-4 w-4" />}
+          label="Active"
+          value={stats.activeCount}
+          tone="teal"
+          display
+          sub={`${stats.total} total plans`}
+        />
+        <StatCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="Behind"
+          value={stats.behindCount}
+          tone="rose"
+          display
+          sub="need a session"
+        />
+        <StatCard
+          icon={<Flame className="h-4 w-4" />}
+          label="Overall"
+          value={`${stats.overallPercent}%`}
+          tone="amber"
+          display
+          sub="all plans"
+        />
+      </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
+      {/* Plan cards */}
+      {goals.length === 0 ? (
+        <EmptyState
+          icon={<GraduationCap className="h-5 w-5" />}
+          title="No study plans yet"
+          description="Create a plan like 'Learn DSA in 2 months' with a daily time goal. CampusFlow tracks your sessions and tells you if you're on track."
+          action={
+            <Button onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Create your first plan
             </Button>
-            <Button type="submit">
-              {mode === "add" ? "Add goal" : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {goals.map((g) => (
+            <PlanCard
+              key={g.id}
+              goal={g}
+              onEdit={() => openEdit(g)}
+            />
+          ))}
+        </div>
+      )}
+
+      <PlanFormDialog
+        open={planDialogOpen}
+        onOpenChange={setPlanDialogOpen}
+        editing={editingGoal}
+      />
+    </div>
   );
 }
 
-// --------------------------- goal card ---------------------------
+/* ----------------------------- Plan card ----------------------------- */
 
-function GoalCard({
-  goal,
-  onProgressChange,
-  onToggle,
-  onEdit,
-  onDelete,
-}: {
-  goal: StudyGoal;
-  onProgressChange: (value: number) => void;
-  onToggle: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const priorityStyle = PRIORITY_STYLES[goal.priority];
-  const overdue = !goal.completed && goal.targetDate < todayISO();
-  const rel = relativeDay(goal.targetDate);
-  const ariaLabel = `${goal.subject}: ${goal.topic}`;
+function PlanCard({ goal, onEdit }: { goal: StudyGoal; onEdit: () => void }) {
+  const deleteGoal = useStudyStore((s) => s.deleteGoal);
+  const [logOpen, setLogOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const p = useMemo(() => planStats(goal), [goal]);
+
+  const statusTone = p.isComplete
+    ? { label: "Complete", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30" }
+    : p.onTrack
+      ? { label: "On track", cls: "bg-primary/15 text-primary border-primary/30" }
+      : { label: "Behind", cls: "bg-destructive/15 text-destructive border-destructive/30" };
 
   return (
-    <Card className={goal.completed ? "gap-4 p-5 opacity-70" : "gap-4 p-5"}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 border-b-2 border-[var(--pixel-line)]">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-bold">{goal.subject}</h3>
-            <Badge
-              variant="outline"
-              className={`gap-1 ${priorityStyle.className}`}
-            >
-              <span
-                className={`h-2 w-2 ${priorityStyle.dot}`}
-                aria-hidden="true"
-              />
-              {priorityStyle.label}
+            <h3 className="text-base font-bold">{goal.subject}</h3>
+            <Badge variant="outline" className={PRIORITY_STYLES[goal.priority].className}>
+              <span className={`h-1.5 w-1.5 ${PRIORITY_STYLES[goal.priority].dot}`} />
+              {goal.priority}
+            </Badge>
+            <Badge variant="outline" className={statusTone.cls}>
+              {statusTone.label}
             </Badge>
           </div>
-          <p className="line-clamp-2 text-sm text-muted-foreground">
-            {goal.topic}
-          </p>
+          <p className="truncate text-sm text-muted-foreground">{goal.topic}</p>
         </div>
-
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
             onClick={onEdit}
-            aria-label={`Edit goal ${ariaLabel}`}
-            className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
+            aria-label="Edit plan"
           >
-            <Pencil className="size-4" />
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
           <ConfirmDialog
             trigger={
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Delete goal ${ariaLabel}`}
-                className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
+                className="h-8 w-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted hover:text-destructive"
+                aria-label="Delete plan"
               >
-                <Trash2 className="size-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             }
-            title="Delete study goal?"
-            description={`"${goal.subject} — ${goal.topic}" will be permanently removed.`}
-            confirmLabel="Delete"
-            onConfirm={onDelete}
+            title="Delete this study plan?"
+            description={`"${goal.subject} — ${goal.topic}" and all its logged sessions will be removed.`}
+            onConfirm={() => {
+              deleteGoal(goal.id);
+              toast.success("Plan deleted");
+            }}
           />
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Progress display */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          {goal.completed ? (
-            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="size-4" /> Completed
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <Circle className="size-4" /> In progress
-            </span>
-          )}
-          <span className="font-medium tabular-nums">{goal.progress}%</span>
-        </div>
-        <Progress value={goal.progress} className="h-2" />
-      </div>
-
-      {/* Interactive slider (only when not completed) */}
-      {!goal.completed ? (
+      <CardContent className="space-y-4 pt-4">
+        {/* Timeline */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Adjust progress</span>
-            <span className="tabular-nums">{goal.progress}%</span>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{formatDate(goal.startDate)}</span>
+            <span className="font-bold">
+              {p.isComplete
+                ? "Finished"
+                : p.hasStarted
+                  ? `Day ${p.daysElapsed}/${p.totalDays}`
+                  : "Starts " + relativeDay(goal.startDate)}
+            </span>
+            <span>{formatDate(goal.targetDate)}</span>
           </div>
-          <Slider
-            value={[goal.progress]}
-            onValueChange={(v) => onProgressChange(v[0] ?? 0)}
-            min={0}
-            max={100}
-            step={1}
-            aria-label={`Progress for ${ariaLabel}`}
-          />
+          <div className="relative h-3 border-2 border-[var(--pixel-line)] bg-muted">
+            {/* expected-by-today marker */}
+            {p.hasStarted && !p.isComplete && p.totalDays > 0 && (
+              <div
+                className="absolute top-0 h-full w-[2px] bg-[var(--pixel-line)] opacity-60"
+                style={{ left: `${(p.daysElapsed / p.totalDays) * 100}%` }}
+                aria-hidden
+              />
+            )}
+            <div
+              className="h-full bg-primary"
+              style={{ width: `${p.percent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">
+              {p.daysRemaining > 0 ? `${p.daysRemaining} days left` : "Deadline passed"}
+            </span>
+            <span className="font-bold">{p.percent}% done</span>
+          </div>
         </div>
-      ) : null}
 
-      {/* Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-        <div className="flex items-center gap-2 text-sm">
-          <CalendarDays
-            className="size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <span className="text-muted-foreground">
-            {formatDate(goal.targetDate)}
-          </span>
-          <Badge
-            variant="outline"
-            className={
-              overdue
-                ? "border-rose-500/25 bg-rose-500/12 font-bold text-rose-600 dark:text-rose-300"
-                : "border-border bg-muted text-muted-foreground"
-            }
+        {/* Today + Log */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-3.5 w-3.5 text-primary" />
+              <span className="font-bold">
+                {formatDuration(p.minutesToday)}
+              </span>
+              <span className="text-muted-foreground">
+                / {formatDuration(goal.dailyMinutesGoal)} today
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Daily goal: {formatHours(goal.dailyMinutesGoal)} ·{" "}
+              {p.streak > 0 ? (
+                <span className="font-bold text-amber-600 dark:text-amber-300">
+                  <Flame className="mr-0.5 inline h-3 w-3" />
+                  {p.streak}-day streak
+                </span>
+              ) : (
+                "no streak yet"
+              )}
+            </div>
+          </div>
+          <Button size="sm" onClick={() => setLogOpen(true)}>
+            <Plus className="h-4 w-4" /> Log session
+          </Button>
+        </div>
+
+        {/* Total + deficit */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="border-2 border-[var(--pixel-line)] bg-muted/40 p-2">
+            <div className="text-muted-foreground">Done</div>
+            <div className="font-bold tabular-nums">
+              {formatDuration(p.minutesDone)}
+            </div>
+            <div className="text-muted-foreground">
+              of {formatDuration(p.totalMinutesGoal)}
+            </div>
+          </div>
+          <div
+            className={cn(
+              "border-2 p-2",
+              p.deficitMinutes > 0
+                ? "border-destructive/40 bg-destructive/8"
+                : "border-[var(--pixel-line)] bg-muted/40"
+            )}
           >
-            {rel}
-          </Badge>
+            <div className="text-muted-foreground">
+              {p.onTrack ? "Ahead by" : "Behind by"}
+            </div>
+            <div
+              className={cn(
+                "font-bold tabular-nums",
+                p.onTrack ? "text-primary" : "text-destructive"
+              )}
+            >
+              {formatDuration(
+                p.onTrack
+                  ? p.minutesDone - p.expectedMinutesByToday
+                  : p.deficitMinutes
+              )}
+            </div>
+            <div className="text-muted-foreground">vs daily plan</div>
+          </div>
         </div>
 
-        <Button
-          variant={goal.completed ? "outline" : "secondary"}
-          size="sm"
-          onClick={onToggle}
-          aria-label={
-            goal.completed
-              ? `Reopen goal ${ariaLabel}`
-              : `Mark goal ${ariaLabel} complete`
-          }
-        >
-          {goal.completed ? (
-            <>
-              <Circle /> Reopen
-            </>
-          ) : (
-            <>
-              <CheckCircle2 /> Mark complete
-            </>
-          )}
-        </Button>
-      </div>
+        {/* Sessions log (collapsible) */}
+        {goal.sessions.length > 0 ? (
+          <Collapsible open={sessionsOpen} onOpenChange={setSessionsOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="flex w-full items-center justify-between border-2 border-[var(--pixel-line)] bg-card px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted">
+                <span className="flex items-center gap-2">
+                  <History className="h-3.5 w-3.5 text-muted-foreground" />
+                  {goal.sessions.length} session
+                  {goal.sessions.length === 1 ? "" : "s"} logged
+                </span>
+                <span className="text-muted-foreground">
+                  {sessionsOpen ? "Hide" : "View"}
+                </span>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ul className="mt-2 max-h-40 divide-y-2 divide-[var(--pixel-line)]/30 overflow-y-auto border-2 border-[var(--pixel-line)] bg-card">
+                {goal.sessions.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between px-3 py-2 text-xs"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold">{formatDate(s.date)}</span>
+                      <span className="text-muted-foreground">
+                        {relativeDay(s.date)}
+                      </span>
+                      {s.note ? (
+                        <span className="truncate text-muted-foreground">
+                          · {s.note}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="font-bold tabular-nums text-primary">
+                      {formatDuration(s.minutes)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
+      </CardContent>
+
+      <LogSessionDialog
+        open={logOpen}
+        onOpenChange={setLogOpen}
+        goalId={goal.id}
+        subject={goal.subject}
+        dailyGoal={goal.dailyMinutesGoal}
+      />
     </Card>
   );
 }
 
-// --------------------------- skeleton ---------------------------
+/* --------------------------- Plan form ------------------------------ */
 
-function StudySkeleton() {
+function PlanFormDialog({
+  open,
+  onOpenChange,
+  editing,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  editing: StudyGoal | null;
+}) {
+  const addGoal = useStudyStore((s) => s.addGoal);
+  const updateGoal = useStudyStore((s) => s.updateGoal);
+
+  const [subject, setSubject] = useState("");
+  const [topic, setTopic] = useState("");
+  const [startDate, setStartDate] = useState(todayISO());
+  const [targetDate, setTargetDate] = useState(daysFromTodayISO(60));
+  const [hours, setHours] = useState(1);
+  const [minutes, setMinutes] = useState(0);
+  const [priority, setPriority] = useState<Priority>("Medium");
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setSubject(editing.subject);
+      setTopic(editing.topic);
+      setStartDate(editing.startDate);
+      setTargetDate(editing.targetDate);
+      setHours(Math.floor(editing.dailyMinutesGoal / 60));
+      setMinutes(editing.dailyMinutesGoal % 60);
+      setPriority(editing.priority);
+    } else {
+      setSubject("");
+      setTopic("");
+      setStartDate(todayISO());
+      setTargetDate(daysFromTodayISO(60));
+      setHours(1);
+      setMinutes(0);
+      setPriority("Medium");
+    }
+    setError(null);
+  }, [open, editing]);
+
+  const dailyMinutes = hours * 60 + minutes;
+
+  const submit = () => {
+    if (!subject.trim()) return setError("Give your plan a subject (e.g. DSA).");
+    if (!topic.trim()) return setError("Describe what you're learning.");
+    if (!startDate || !targetDate)
+      return setError("Pick a start and target date.");
+    if (daysBetween(startDate, targetDate) <= 0)
+      return setError("Target date must be after the start date.");
+    if (dailyMinutes <= 0)
+      return setError("Set a daily time goal (at least 15 minutes).");
+
+    const input: StudyGoalInput = {
+      subject: subject.trim(),
+      topic: topic.trim(),
+      startDate,
+      targetDate,
+      dailyMinutesGoal: dailyMinutes,
+      priority,
+    };
+    if (editing) {
+      updateGoal(editing.id, input);
+      toast.success("Plan updated");
+    } else {
+      addGoal(input);
+      toast.success("Study plan created", {
+        description: `${subject} · ${formatHours(dailyMinutes)}/day for ${daysBetween(
+          startDate,
+          targetDate
+        ) + 1} days`,
+      });
+    }
+    onOpenChange(false);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
-          <div className="space-y-2">
-            <div className="h-5 w-40 animate-pulse bg-muted" />
-            <div className="h-3 w-56 animate-pulse bg-muted" />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base">
+            {editing ? "Edit study plan" : "New study plan"}
+          </DialogTitle>
+          <DialogDescription>
+            Commit to a daily time goal between two dates. Progress is computed
+            from the sessions you log.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="plan-subject" className="text-xs font-semibold uppercase tracking-wider">
+              Subject *
+            </Label>
+            <Input
+              id="plan-subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="e.g. DSA"
+              maxLength={40}
+              autoFocus
+            />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="plan-topic" className="text-xs font-semibold uppercase tracking-wider">
+              Goal / what you'll learn *
+            </Label>
+            <Input
+              id="plan-topic"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Learn DSA in 2 months"
+              maxLength={80}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="plan-start" className="text-xs font-semibold uppercase tracking-wider">
+                Start date
+              </Label>
+              <Input
+                id="plan-start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="plan-target" className="text-xs font-semibold uppercase tracking-wider">
+                Target date
+              </Label>
+              <Input
+                id="plan-target"
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider">
+              Daily time goal
+            </Label>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Label htmlFor="plan-hours" className="text-[11px] text-muted-foreground">
+                  Hours
+                </Label>
+                <Input
+                  id="plan-hours"
+                  type="number"
+                  min={0}
+                  max={16}
+                  value={hours}
+                  onChange={(e) =>
+                    setHours(Math.max(0, Math.min(16, Number(e.target.value) || 0)))
+                  }
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="plan-mins" className="text-[11px] text-muted-foreground">
+                  Minutes
+                </Label>
+                <Select
+                  value={String(minutes)}
+                  onValueChange={(v) => setMinutes(Number(v))}
+                >
+                  <SelectTrigger id="plan-mins">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 15, 30, 45].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m}m
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <span className="pb-2 text-sm font-bold text-primary">
+                {formatHours(dailyMinutes)}/day
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Total commitment:{" "}
+              <span className="font-semibold text-foreground">
+                {formatDuration(
+                  dailyMinutes * (daysBetween(startDate, targetDate) + 1)
+                )}
+              </span>{" "}
+              over {daysBetween(startDate, targetDate) + 1} days.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider">
+              Priority
+            </Label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error ? (
+            <p role="alert" className="text-xs font-semibold text-destructive">
+              {error}
+            </p>
+          ) : null}
         </div>
-        <div className="h-9 w-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
-      </div>
-      <div className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow-sm" />
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow-sm"
-          />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-52 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow"
-          />
-        ))}
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit}>
+            {editing ? "Save plan" : "Create plan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// --------------------------- main view ---------------------------
+/* ------------------------- Log session ------------------------------- */
 
-export function StudyView() {
-  const hydrated = useHydrated();
-  const { goals, addGoal, updateGoal, deleteGoal, setProgress, toggleGoal } =
-    useStudyStore();
+function LogSessionDialog({
+  open,
+  onOpenChange,
+  goalId,
+  subject,
+  dailyGoal,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  goalId: string;
+  subject: string;
+  dailyGoal: number;
+}) {
+  const logSession = useStudyStore((s) => s.logSession);
+  const [date, setDate] = useState(todayISO());
+  const [minutes, setMinutes] = useState(dailyGoal);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const [addOpen, setAddOpen] = React.useState(false);
-  const [editTarget, setEditTarget] = React.useState<StudyGoal | null>(null);
-  const [subjectFilter, setSubjectFilter] = React.useState<string>("all");
-  const [sortKey, setSortKey] = React.useState<SortKey>("targetDate");
-
-  // Stable default form for the "Add" dialog (computed once).
-  const addInitial = React.useMemo(() => emptyForm(), []);
-  // Re-seed form whenever a different goal is opened for editing.
-  const editInitial = React.useMemo(
-    () => (editTarget ? goalToForm(editTarget) : emptyForm()),
-    [editTarget]
-  );
-
-  const subjects = React.useMemo(
-    () =>
-      Array.from(new Set(goals.map((g) => g.subject))).sort((a, b) =>
-        a.localeCompare(b)
-      ),
-    [goals]
-  );
-
-  const visibleGoals = React.useMemo(() => {
-    const filtered =
-      subjectFilter === "all"
-        ? goals
-        : goals.filter((g) => g.subject === subjectFilter);
-    return sortGoals(filtered, sortKey);
-  }, [goals, subjectFilter, sortKey]);
-
-  const overall = React.useMemo(() => {
-    if (goals.length === 0) return 0;
-    const sum = goals.reduce((acc, g) => acc + g.progress, 0);
-    return Math.round(sum / goals.length);
-  }, [goals]);
-
-  const activeCount = goals.filter((g) => !g.completed).length;
-  const completedCount = goals.filter((g) => g.completed).length;
-  const dueThisWeek = goals.filter(isDueThisWeek).length;
-
-  const handleAdd = (form: GoalFormState) => {
-    const payload: StudyGoalInput = {
-      subject: form.subject,
-      topic: form.topic,
-      priority: form.priority,
-      targetDate: form.targetDate,
-      progress: form.progress,
-      ...(form.progress >= 100 ? { completed: true } : {}),
-    };
-    addGoal(payload);
-    setAddOpen(false);
-    toast.success("Goal added");
-  };
-
-  const handleEdit = (form: GoalFormState) => {
-    if (!editTarget) return;
-    // Sync `completed` with progress: reaching 100% marks complete, anything
-    // below 100% preserves the prior completed state (a manual override
-    // stays intact unless the user explicitly drags to 100).
-    const patch: Partial<StudyGoalInput> = {
-      subject: form.subject,
-      topic: form.topic,
-      priority: form.priority,
-      targetDate: form.targetDate,
-      progress: form.progress,
-      completed: form.progress >= 100 ? true : editTarget.completed,
-    };
-    updateGoal(editTarget.id, patch);
-    setEditTarget(null);
-    toast.success("Goal updated");
-  };
-
-  const handleProgressChange = (goal: StudyGoal, value: number) => {
-    const wasCompleted = goal.completed;
-    setProgress(goal.id, value);
-    if (!wasCompleted && value >= 100) {
-      toast.success("Goal completed 🎉");
+  React.useEffect(() => {
+    if (open) {
+      setDate(todayISO());
+      setMinutes(dailyGoal);
+      setNote("");
+      setError(null);
     }
-  };
+  }, [open, dailyGoal]);
 
-  const handleToggle = (goal: StudyGoal) => {
-    toggleGoal(goal.id);
-    if (!goal.completed) {
-      toast.success("Goal completed 🎉");
-    }
+  const submit = () => {
+    if (minutes <= 0) return setError("Log at least 1 minute.");
+    logSession(goalId, { date, minutes, note: note.trim() || undefined });
+    toast.success("Session logged", {
+      description: `${subject} · ${formatDuration(minutes)} on ${formatDate(date)}`,
+    });
+    onOpenChange(false);
   };
-
-  const handleDelete = (goal: StudyGoal) => {
-    deleteGoal(goal.id);
-    toast.success("Goal deleted");
-  };
-
-  if (!hydrated) {
-    return <StudySkeleton />;
-  }
 
   return (
-    <div className="space-y-6">
-      <ModuleHeader
-        icon={<GraduationCap className="size-5" />}
-        title="Study Planner"
-        description="Track your study goals & progress"
-        actions={
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus /> Add Goal
-          </Button>
-        }
-      />
-
-      {/* Featured overall progress */}
-      <Card className="gap-0 p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              Overall Study Progress
-            </p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="font-display text-3xl text-primary">
-                {overall}%
-              </span>
-              <span className="text-sm text-muted-foreground">
-                across {goals.length}{" "}
-                {goals.length === 1 ? "goal" : "goals"}
-              </span>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base">
+            Log study session
+          </DialogTitle>
+          <DialogDescription>
+            {subject} · daily goal {formatDuration(dailyGoal)}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="log-date" className="text-xs font-semibold uppercase tracking-wider">
+              Date
+            </Label>
+            <Input
+              id="log-date"
+              type="date"
+              value={date}
+              max={todayISO()}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="log-mins" className="text-xs font-semibold uppercase tracking-wider">
+              Minutes studied
+            </Label>
+            <Input
+              id="log-mins"
+              type="number"
+              min={1}
+              max={720}
+              value={minutes}
+              onChange={(e) =>
+                setMinutes(Math.max(0, Math.min(720, Number(e.target.value) || 0)))
+              }
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {[15, 30, 45, 60, 90, 120].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMinutes(m)}
+                  className="border-2 border-[var(--pixel-line)] bg-card px-2 py-1 text-xs font-semibold hover:bg-muted"
+                >
+                  {formatDuration(m)}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-2 self-start border-2 border-[var(--pixel-line)] bg-primary/15 px-3 py-1.5 text-primary pixel-shadow-sm sm:self-auto">
-            <TrendingUp className="size-4" aria-hidden="true" />
-            <span className="text-xs font-bold">
-              {completedCount}/{goals.length} done
-            </span>
-          </div>
-        </div>
-        <Progress value={overall} className="mt-4 h-2.5" />
-        {/* Pixel HP-bar: 20 segments, lit by overall %. */}
-        <div className="pixel-segments mt-3" aria-hidden>
-          {Array.from({ length: 20 }).map((_, i) => (
-            <i key={i} className={i < Math.round(overall / 5) ? "on" : ""} />
-          ))}
-        </div>
-      </Card>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard
-          icon={<TrendingUp className="size-4" />}
-          label="Overall Progress"
-          value={`${overall}%`}
-          tone="primary"
-          sub="avg across goals"
-          display
-        />
-        <StatCard
-          icon={<Target className="size-4" />}
-          label="Active Goals"
-          value={activeCount}
-          tone="amber"
-          sub="in progress"
-          display
-        />
-        <StatCard
-          icon={<CheckCircle2 className="size-4" />}
-          label="Completed"
-          value={completedCount}
-          tone="teal"
-          sub="done"
-          display
-        />
-        <StatCard
-          icon={<Flame className="size-4" />}
-          label="Due This Week"
-          value={dueThisWeek}
-          tone="rose"
-          sub="next 7 days"
-          display
-        />
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by subject">
-            <SelectValue placeholder="All subjects" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All subjects</SelectItem>
-            {subjects.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Sort goals">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="targetDate">Sort: Target date</SelectItem>
-            <SelectItem value="progress">Sort: Progress</SelectItem>
-            <SelectItem value="priority">Sort: Priority</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Goals list */}
-      {visibleGoals.length === 0 ? (
-        <EmptyState
-          icon={<GraduationCap className="size-5" />}
-          title="No study goals yet"
-          description="Add your first study goal to start tracking progress towards your exams and deadlines."
-          action={
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus /> Add Goal
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {visibleGoals.map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onProgressChange={(v) => handleProgressChange(goal, v)}
-              onToggle={() => handleToggle(goal)}
-              onEdit={() => setEditTarget(goal)}
-              onDelete={() => handleDelete(goal)}
+          <div className="space-y-1.5">
+            <Label htmlFor="log-note" className="text-xs font-semibold uppercase tracking-wider">
+              Note (optional)
+            </Label>
+            <Textarea
+              id="log-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="What did you cover?"
+              maxLength={160}
+              rows={2}
             />
-          ))}
+          </div>
+          {error ? (
+            <p role="alert" className="text-xs font-semibold text-destructive">
+              {error}
+            </p>
+          ) : null}
         </div>
-      )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit}>
+            <CheckCircle2 className="h-4 w-4" /> Log it
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      {/* Add dialog */}
-      <GoalFormDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        mode="add"
-        initial={addInitial}
-        onSubmit={handleAdd}
-      />
+/* ----------------------------- Skeleton ----------------------------- */
 
-      {/* Edit dialog */}
-      <GoalFormDialog
-        open={editTarget !== null}
-        onOpenChange={(v) => {
-          if (!v) setEditTarget(null);
-        }}
-        mode="edit"
-        initial={editInitial}
-        onSubmit={handleEdit}
-      />
+function StudySkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-12 w-48 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
+      <div className="h-24 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm"
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-64 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow"
+          />
+        ))}
+      </div>
     </div>
   );
 }

@@ -282,6 +282,35 @@
 }
 
 /* ---------------------------------------------------------------------
+   PixelLandscape — seamless parallax scroll for the dashboard hero.
+   Each layer is a doubled row translated 0 -> -50% so it loops infinitely.
+   --------------------------------------------------------------------- */
+@keyframes px-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.px-scroll-x { animation: px-scroll linear infinite; will-change: transform; }
+.px-scroll-slow { animation-duration: 60s; }
+.px-scroll-med  { animation-duration: 36s; }
+.px-scroll-fast { animation-duration: 20s; }
+
+@keyframes px-sun-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.px-sun-bob { animation: px-sun-bob 6s steps(4, jump-none) infinite; }
+
+@keyframes px-cloud {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.px-cloud { animation: px-cloud linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .px-scroll-x, .px-sun-bob, .px-cloud { animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------
    Global Pixelscape overrides.
    Force sharp corners everywhere (pixel art has no radii). Unlayered +
    important so it reliably beats Tailwind rounded-* utilities used by

@@ -845,3 +845,78 @@ Stage Summary:
   the modules together, a clean stores/ + storage/ data layer, and is an
   installable offline PWA. Screenshots: v3-final-dashboard.png,
   v3-settings-dark.png, v3-mobile-dark.png.
+
+---
+Task ID: V4
+Agent: main (orchestrator)
+Task: Redesign the Study Planner to model real study plans (daily time goal +
+session logging + on-track tracking + reminders), and add an animated
+pixel-landscape loop to the dashboard hero.
+
+Work Log:
+- StudyGoal type redesigned (src/lib/types.ts): replaced progress/completed
+  with startDate + targetDate + dailyMinutesGoal + sessions: StudySession[].
+  Added StudyGoalInput + StudySessionInput.
+- format.ts: added daysBetween, formatDuration (2h 30m), formatHours (2h),
+  planStats(goal) computing totalDays/daysElapsed/daysRemaining/
+  totalMinutesGoal/minutesDone/minutesToday/expectedMinutesByToday/
+  deficitMinutes/onTrack/percent/streak/isComplete/hasStarted, segmentsFor().
+- study-store.ts rewritten: new model + logSession/updateSession/deleteSession;
+  persist bumped to v2 with a migrate() that carries v1 goals into the new
+  shape (sessions: []).
+- seed-data.ts createSeedGoals rewritten: DSA "Learn DSA in 2 months" 2h/day
+  with 12 days of sessions (some skipped → behind), DBMS exam prep 1h/day
+  on-track, React mastery sprint completed. buildSessions() helper generates
+  deterministic sessions with relative dates.
+- study-view.tsx full rewrite: ModuleHeader + "New plan" button; featured
+  Overall Progress card (today minutes vs daily goal total, behind count,
+  overall %); 4 StatCards (Today/Active/Behind/Overall); plan cards each
+  showing timeline (start → Day X/N → target) with an expected-by-today
+  marker, today vs daily-goal, streak flame, Done/Behind boxes (deficit),
+  collapsible sessions log, Log session button; PlanFormDialog (subject,
+  goal/topic, start+target dates, hours+minutes daily goal, priority, live
+  "total commitment" preview); LogSessionDialog (date, minutes with quick-pick
+  chips 15m/30m/45m/1h/1.5h/2h, optional note).
+- PixelLandscape component (src/components/pixel-landscape.tsx): an infinite
+  seamless parallax pixel-art scene — banded dawn sky, bobbing pixel sun,
+  drifting pixel clouds, 3 scrolling mountain layers (far/mid/near at 60s/
+  36s/20s for parallax), dithered ground. Each layer is a doubled row
+  translated 0→-50% (px-scroll keyframe in globals.css) so it loops with no
+  seam. Respects prefers-reduced-motion. Pure CSS/SVG — no video file.
+- globals.css: added px-scroll / px-sun-bob / px-cloud keyframes + reduced-
+  motion guard. (Also restored the accidentally-truncated pixel scrollbar
+  block.)
+- Dashboard: hero background replaced with <PixelLandscape> (animated).
+  Daily overview now includes "Xh studied today" + a "⚠ N study plans behind"
+  inline note. Study-progress section rewritten to use planStats (per-plan
+  percent, today vs goal, On track / Behind Xh).
+- Notifications popover: study check-in reminders now computed from the new
+  plan model — "DSA — behind by 6h" (rose, when deficit > 0) or "DSA — 0h of
+  2h today" (amber, when on track but no session today).
+- Verification (Agent Browser):
+  * Clean reload: empty workspace → "Load demo data" CTA → dashboard shows
+    animated pixel landscape (VLM: "golden sky, bright sun, layered green
+    mountains, parallax depth... very cool").
+  * Study planner with demo data: DSA plan "Behind · Day 12/60 · Daily goal
+    2h · 1-day streak · Behind by Xh"; DBMS + React plans render.
+  * Created a new "DSA — Learn DSA in 2 months" plan (2h/day, 61 days, total
+    commitment "122h over 61 days" computed live) → appears as "Day 1/61".
+  * Logged a 120min session → plan flipped from "Behind" to "On track" with
+    "1-day streak". On-track math verified.
+  * Notifications popover shows 4 items: 2 task reminders + 2 study reminders
+    ("DSA — behind by 6h", "DBMS — behind by 15m").
+  * `bun run lint` clean. No console/page errors after clean reload.
+- VLM (study planner): "Each plan card clearly displays a timeline, daily time
+  goal, today's progress vs daily goal, total hours vs commitment, and an
+  On-track/Behind/Complete status. It is now very clear how to model a plan
+  like 'Learn DSA in 2 months, 2h/day.'"
+
+Stage Summary:
+- Study Planner is now a genuine study-planning tool: you commit to a daily
+  time goal between two dates, log sessions, and the app truthfully computes
+  whether you're on track or behind (with a deficit) — plus streaks and
+  in-app check-in reminders.
+- Dashboard hero now plays an infinite animated pixel-mountain parallax
+  landscape (sky + sun + clouds + 3 scrolling mountain layers + dithered
+  ground) — the "cool loop video" effect, pure CSS/SVG, no asset weight.
+- Screenshots: v4-dashboard-animated.png, v4-study-planner.png.
