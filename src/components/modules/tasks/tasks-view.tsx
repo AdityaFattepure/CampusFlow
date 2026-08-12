@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useTaskStore } from "@/lib/store";
+import { useTaskStore } from "@/lib/stores";
 import type { Task, TaskCategory, Priority, TaskInput } from "@/lib/types";
 import { TASK_CATEGORIES } from "@/lib/types";
 import {

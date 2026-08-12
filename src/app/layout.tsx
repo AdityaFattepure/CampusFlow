@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { RegisterSW } from "@/components/pwa/register-sw";
 
 const pixel = Pixelify_Sans({
   variable: "--font-pixel",
@@ -22,6 +23,8 @@ export const metadata: Metadata = {
   title: "CampusFlow — Pixel Edition",
   description:
     "A calm, pixel-art student productivity & expense manager. Tasks, expenses, study goals and notes — all in a mindful Pixelscape.",
+  manifest: "/manifest.json",
+  applicationName: "CampusFlow",
   keywords: [
     "CampusFlow",
     "pixelscape",
@@ -34,7 +37,17 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "CampusFlow" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "CampusFlow",
+    statusBarStyle: "default",
   },
   openGraph: {
     title: "CampusFlow — Pixel Edition",
@@ -43,6 +56,13 @@ export const metadata: Metadata = {
     siteName: "CampusFlow",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3a9d6f",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -58,6 +78,7 @@ export default function RootLayout({
         <ThemeProvider>
           <div className="pixelscape">{children}</div>
         </ThemeProvider>
+        <RegisterSW />
         <SonnerToaster position="top-center" richColors closeButton />
       </body>
     </html>

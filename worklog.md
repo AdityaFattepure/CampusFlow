@@ -754,3 +754,94 @@ Stage Summary:
   propagates to every shadcn primitive + the 4 module views.
 - Screenshots: pixel-dash-light2.png, pixel-dash-dark.png,
   pixel-mobile-light.png, pixel-mobile-dark.png, pixel-tasks-final.png.
+
+---
+Task ID: V3
+Agent: main (orchestrator)
+Task: Implement the 6 user-requested improvements — data-layer refactor,
+export/import, real Settings page, empty-start + Load Demo Data, dynamic
+Daily Overview + Priority alert, and PWA installability.
+
+Work Log:
+- Refactored `src/lib/store.ts` (deleted) into a clean split:
+  - `src/lib/stores/seed-data.ts` — demo-data FACTORIES (createSeedTasks/
+    createSeedExpenses/createSeedGoals/createSeedNotes) returning fresh
+    objects with dates relative to call time + DEFAULT_STUDENT_NAME/
+    DEMO_STUDENT_NAME constants.
+  - `src/lib/stores/{task,expense,study,note,settings}-store.ts` — one
+    Zustand `persist` store per domain, each now EMPTY by default ([] /
+    "Student") with added `loadDemo()` + `reset()` actions. Same localStorage
+    keys + version:1 → existing user data hydrates fine.
+  - `src/lib/stores/index.ts` — barrel re-export. Updated all 7 consumer
+    imports `@/lib/store` → `@/lib/stores`.
+- `src/lib/storage/backup.ts` — portable backup layer: buildBackup(),
+  downloadBackup() (campusflow-backup-YYYY-MM-DD.json with
+  tasks/expenses/studyGoals/notes/settings/theme), restoreBackup() (validates
+  `app:"campusflow"` signature, setState on each store), resetAllData(),
+  loadDemoData(), isWorkspaceEmpty(). APP_VERSION="1.0.0".
+- `src/lib/types.ts` — added "settings" to ModuleKey.
+- PWA layer:
+  - `public/manifest.json` (name, short_name, standalone, theme_color
+    #3a9d6f, background_color #f4ecd8, icons 192/512 any+maskable).
+  - `public/sw.js` — offline-first SW (network-first navigations +
+    stale-while-revalidate assets; precaches /, manifest, icons).
+  - `scripts/gen-icons.mjs` (sharp) → `public/icon-512.png`, `icon-192.png`,
+    `icon.svg` (pixel graduation cap on emerald, integer scale 23 for crisp
+    pixels).
+  - `src/components/pwa/register-sw.tsx` — registers SW on load.
+  - `src/app/layout.tsx` — metadata.manifest, themeColor (#3a9d6f via
+    viewport export), appleWebApp, icons; renders <RegisterSW/>.
+- `src/components/modules/settings/settings-view.tsx` — NEW. 4 sections:
+  Profile (name input + save), Appearance (Light/Dawn + Dark/Night pixel
+  segmented control via useTheme), Data management (Export/Import/Load
+  demo/Reset as 2x2 grid of pixel DataAction cards; Import uses hidden file
+  input; Load demo + Reset wrapped in ConfirmDialog), Application (Version
+  v1.0.0, Storage: Local browser, Backend sync: Not enabled, Records count +
+  a ShieldCheck note explaining localStorage + export).
+- Wired Settings into nav: `src/components/layout/nav-config.tsx` added
+  SETTINGS_NAV + ALL_NAV_ITEMS. `app-shell.tsx`: desktop sidebar gets a
+  "System" section with Settings; mobile top bar gets a Settings gear;
+  renderModule switch handles "settings"; sidebar footer ProfileChip
+  (avatar+name) navigates to Settings (replaced the old EditNameButton
+  dialog).
+- Dashboard Daily Overview: `dashboard-view.tsx` hero now shows 4 dynamic
+  today-stats inline (tasks due today / spent this week / active study goals
+  / notes updated today) in Press Start 2P. Added a Priority alert banner
+  (full-width, amber for upcoming / rose for overdue, shows the earliest
+  pending task title + priority + "due Today/Tomorrow/in Nd"/"Nd overdue").
+  Added an empty-workspace CTA ("Your workspace is empty" + Add first task /
+  Load demo data) shown only when all stores are empty. Stat card label
+  "Spent" → "Spent / month" to disambiguate from hero "spent this week".
+- Verification (Agent Browser, clean localStorage):
+  * Empty-start: fresh user sees "Good Morning, Student" + empty-workspace
+    CTA with "Load demo data". ✓
+  * Load demo data (dashboard CTA): workspace populates, hero shows
+    "Good Morning, Aditya" + "1 task due today / ₹4,500 spent this week /
+    3 active study goals / 3 notes updated today" + Priority alert
+    "Study DBMS chapter 6 due Today". ✓
+  * Settings: all 4 sections render (Profile name=Aditya, Appearance Light/
+    Dark, Data 17 records + Export/Import/Load demo/Reset, Application
+    Version v1.0.0 / Storage Local browser / Backend sync Not enabled).
+    VLM-confirmed. ✓
+  * Export: downloaded campusflow-backup-2026-08-12.json (5024 bytes) with
+    correct {app:"campusflow",version:1,data:{tasks,expenses,studyGoals,
+    notes,settings,theme}} structure + toast. ✓
+  * Reset: confirm dialog → all stores wiped to empty arrays, studentName→
+    "Student", "All data reset" toast, localStorage confirmed empty. ✓
+  * Import: uploaded the backup file → data restored (17 records, 4 tasks,
+    studentName→"Aditya") + "Backup restored" toast. Full round-trip ✓
+  * PWA: /manifest.json (200), /sw.js (200), /icon-192.png (200), SW
+    registered (1 registration, scope localhost:3000/), manifest link +
+    theme-color #3a9d6f + apple-touch-icon in <head>. ✓
+  * Dark mode: toggles + persists. Mobile (390×844): gear in top bar, 5-item
+    bottom nav, footer no overlap (784 vs 785). ✓
+  * `bun run lint` clean. No console/page errors after clean reload.
+
+Stage Summary:
+- All 6 improvements shipped and browser-verified. CampusFlow now: starts
+  empty for genuine users, has a portable JSON export/import (solves
+  localStorage's biggest weakness), a real Settings page making the
+  architecture transparent, a dynamic Daily Overview + Priority alert tying
+  the modules together, a clean stores/ + storage/ data layer, and is an
+  installable offline PWA. Screenshots: v3-final-dashboard.png,
+  v3-settings-dark.png, v3-mobile-dark.png.

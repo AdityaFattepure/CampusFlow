@@ -15,7 +15,7 @@ import {
   Flame,
 } from "lucide-react";
 
-import { useStudyStore } from "@/lib/store";
+import { useStudyStore } from "@/lib/stores";
 import type { StudyGoal, Priority, StudyGoalInput } from "@/lib/types";
 import {
   formatDate,

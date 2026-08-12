@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useTaskStore, useStudyStore } from "@/lib/store";
+import { useTaskStore, useStudyStore } from "@/lib/stores";
 import { todayISO, relativeDay, formatDate } from "@/lib/format";
 import type { ModuleKey } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";

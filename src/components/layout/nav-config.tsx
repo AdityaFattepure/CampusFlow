@@ -7,6 +7,7 @@ import {
   Wallet,
   GraduationCap,
   NotebookPen,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleKey } from "@/lib/types";
@@ -19,6 +20,7 @@ export interface NavItem {
   description: string;
 }
 
+/** Primary nav — shown in the desktop sidebar and the mobile bottom tab bar. */
 export const NAV_ITEMS: NavItem[] = [
   {
     key: "dashboard",
@@ -56,3 +58,16 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Quick notes",
   },
 ];
+
+/** Secondary nav — Settings lives at the sidebar bottom + mobile top-bar gear. */
+export const SETTINGS_NAV: NavItem = {
+  key: "settings",
+  label: "Settings",
+  shortLabel: "Settings",
+  icon: Settings,
+  description: "Profile, data & app",
+};
+
+/** All nav items including Settings (for breadcrumb lookups etc.). */
+export const ALL_NAV_ITEMS: NavItem[] = [...NAV_ITEMS, SETTINGS_NAV];
+

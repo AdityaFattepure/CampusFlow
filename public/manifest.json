@@ -1,0 +1,26 @@
+{
+  "name": "CampusFlow — Pixel Edition",
+  "short_name": "CampusFlow",
+  "description": "A calm, pixel-art student productivity & expense manager. Tasks, expenses, study goals and notes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4ecd8",
+  "theme_color": "#3a9d6f",
+  "categories": ["productivity", "education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

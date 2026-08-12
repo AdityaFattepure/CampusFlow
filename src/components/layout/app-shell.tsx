@@ -2,23 +2,13 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Pencil, Check } from "lucide-react";
-import { NAV_ITEMS } from "./nav-config";
+import { Settings as SettingsIcon } from "lucide-react";
+import { NAV_ITEMS, SETTINGS_NAV, ALL_NAV_ITEMS } from "./nav-config";
 import { PixelLogo } from "./pixel-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationsPopover } from "./notifications-popover";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useSettingsStore } from "@/lib/store";
+import { useSettingsStore } from "@/lib/stores";
 import type { ModuleKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -27,6 +17,7 @@ import { TasksView } from "@/components/modules/tasks/tasks-view";
 import { ExpensesView } from "@/components/modules/expenses/expenses-view";
 import { StudyView } from "@/components/modules/study/study-view";
 import { NotesView } from "@/components/modules/notes/notes-view";
+import { SettingsView } from "@/components/modules/settings/settings-view";
 
 export function AppShell() {
   const hydrated = useHydrated();
@@ -44,6 +35,9 @@ export function AppShell() {
     return <AppShellSkeleton />;
   }
 
+  const activeLabel =
+    ALL_NAV_ITEMS.find((n) => n.key === active)?.label ?? "Dashboard";
+
   return (
     <div className="flex min-h-screen flex-col bg-background pb-[calc(3.75rem+env(safe-area-inset-bottom))] lg:pb-0">
       {/* ---------- Mobile top bar ---------- */}
@@ -51,6 +45,18 @@ export function AppShell() {
         <Brand />
         <div className="flex items-center gap-2">
           <NotificationsPopover onNavigate={navigate} />
+          <button
+            type="button"
+            aria-label="Settings"
+            onClick={() => navigate("settings")}
+            aria-current={active === "settings" ? "page" : undefined}
+            className={cn(
+              "pixel-btn inline-flex h-9 w-9 items-center justify-center bg-card",
+              active === "settings" && "pixel-inset text-primary"
+            )}
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </button>
           <ThemeToggle />
         </div>
       </header>
@@ -89,11 +95,32 @@ export function AppShell() {
                 </button>
               );
             })}
+
+            {/* Settings — secondary, visually separated */}
+            <p className="px-2 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              System
+            </p>
+            <button
+              onClick={() => navigate("settings")}
+              aria-current={active === "settings" ? "page" : undefined}
+              className={cn(
+                "flex w-full items-center gap-3 border-2 px-3 py-2.5 text-sm font-semibold transition-all",
+                active === "settings"
+                  ? "border-[var(--pixel-line)] bg-primary text-primary-foreground pixel-inset"
+                  : "border-transparent text-sidebar-foreground hover:border-[var(--pixel-line)] hover:bg-sidebar-accent"
+              )}
+            >
+              <SettingsIcon className="h-[18px] w-[18px] shrink-0" />
+              <span className="flex-1 text-left">{SETTINGS_NAV.label}</span>
+              {active === "settings" ? (
+                <span className="h-2 w-2 bg-primary-foreground" />
+              ) : null}
+            </button>
           </nav>
 
           <div className="border-t-2 border-[var(--pixel-line)] p-3">
             <div className="flex items-center justify-between gap-2">
-              <EditNameButton />
+              <ProfileChip onNavigate={navigate} />
               <ThemeToggle />
             </div>
             <p className="px-2 pt-2 text-[11px] leading-relaxed text-muted-foreground">
@@ -109,7 +136,7 @@ export function AppShell() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">CampusFlow</span>
               <span className="text-border">/</span>
-              <span>{NAV_ITEMS.find((n) => n.key === active)?.label}</span>
+              <span>{activeLabel}</span>
             </div>
             <div className="flex items-center gap-2">
               <NotificationsPopover onNavigate={navigate} />
@@ -178,6 +205,8 @@ function renderModule(active: ModuleKey, navigate: (m: ModuleKey) => void) {
       return <StudyView />;
     case "notes":
       return <NotesView />;
+    case "settings":
+      return <SettingsView />;
     default:
       return <DashboardView onNavigate={navigate} />;
   }
@@ -196,6 +225,35 @@ function Brand() {
   );
 }
 
+/** Sidebar footer identity chip — clicking opens Settings (Profile section). */
+function ProfileChip({
+  onNavigate,
+}: {
+  onNavigate: (m: ModuleKey) => void;
+}) {
+  const studentName = useSettingsStore((s) => s.studentName);
+  const initial = (studentName || "S").charAt(0).toUpperCase();
+  return (
+    <button
+      onClick={() => onNavigate("settings")}
+      className="flex min-w-0 flex-1 items-center gap-2 border-2 border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--pixel-line)] hover:bg-sidebar-accent"
+      aria-label="Open settings"
+    >
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)] bg-primary/15 text-xs font-bold text-primary">
+        {initial}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">
+          {studentName}
+        </span>
+        <span className="block text-[11px] text-muted-foreground">
+          View settings
+        </span>
+      </span>
+    </button>
+  );
+}
+
 /**
  * Static, Radix-free loading shell rendered on the server and during the first
  * client render so hydration matches exactly. Mirrors the real layout's shape.
@@ -206,6 +264,7 @@ function AppShellSkeleton() {
       <header className="flex items-center justify-between border-b-2 border-[var(--pixel-line)] px-4 py-2.5 lg:hidden">
         <Brand />
         <div className="flex items-center gap-2">
+          <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
           <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
           <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
         </div>
@@ -268,86 +327,5 @@ function AppShellSkeleton() {
         ))}
       </nav>
     </div>
-  );
-}
-
-function EditNameButton() {
-  const studentName = useSettingsStore((s) => s.studentName);
-  const setStudentName = useSettingsStore((s) => s.setStudentName);
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(studentName);
-
-  React.useEffect(() => {
-    if (open) setValue(studentName);
-  }, [open, studentName]);
-
-  const initial = (studentName || "S").charAt(0).toUpperCase();
-
-  return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex min-w-0 flex-1 items-center gap-2 border-2 border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--pixel-line)] hover:bg-sidebar-accent"
-      >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)] bg-primary/15 text-xs font-bold text-primary">
-          {initial}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">
-            {studentName}
-          </span>
-          <span className="block text-[11px] text-muted-foreground">
-            Student
-          </span>
-        </span>
-        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="font-display text-base">
-              Your name
-            </DialogTitle>
-            <DialogDescription>
-              We use this to greet you on the dashboard. Saved locally.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-1">
-            <Label htmlFor="student-name" className="text-xs">
-              Name
-            </Label>
-            <Input
-              id="student-name"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              maxLength={40}
-              placeholder="e.g. Aditya"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setStudentName(value);
-                  setOpen(false);
-                }
-              }}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setStudentName(value);
-                setOpen(false);
-              }}
-              disabled={!value.trim()}
-            >
-              <Check className="h-4 w-4" /> Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }

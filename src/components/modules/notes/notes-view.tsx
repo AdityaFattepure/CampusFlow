@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useMemo, useState } from "react";
-import { useNoteStore } from "@/lib/store";
+import { useNoteStore } from "@/lib/stores";
 import type { Note, NoteCategory, NoteInput } from "@/lib/types";
 import { NOTE_CATEGORIES } from "@/lib/types";
 import { formatDate, NOTE_CATEGORY_STYLES, todayISO } from "@/lib/format";

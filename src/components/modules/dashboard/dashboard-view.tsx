@@ -18,6 +18,9 @@ import {
   NotebookPen,
   Wallet,
   CalendarDays,
+  AlertTriangle,
+  Sparkles,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +42,7 @@ import {
   useStudyStore,
   useNoteStore,
   useSettingsStore,
-} from "@/lib/store";
+} from "@/lib/stores";
 import {
   EXPENSE_CATEGORY_META,
   PRIORITY_STYLES,
@@ -49,11 +52,13 @@ import {
   isSameMonth,
   relativeDay,
   todayISO,
+  daysFromTodayISO,
 } from "@/lib/format";
 import type { ModuleKey, ExpenseCategory } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { loadDemoData } from "@/lib/storage/backup";
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -135,6 +140,36 @@ export function DashboardView({
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, 3);
 
+    // --- Daily overview (dynamic "today" stats) ---
+    const tasksDueToday = pending.filter((t) => t.dueDate === today).length;
+    const weekStart = daysFromTodayISO(-7);
+    const spentThisWeek = expenses
+      .filter((e) => e.date >= weekStart && e.date <= today)
+      .reduce((s, e) => s + e.amount, 0);
+    const notesUpdatedToday = notes.filter(
+      (n) => n.updatedAt.slice(0, 10) === today
+    ).length;
+
+    // --- Priority alert: next upcoming (or overdue) pending task ---
+    const upcoming = [...pending]
+      .filter((t) => t.dueDate)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const priorityAlert = upcoming[0]
+      ? {
+          title: upcoming[0].title,
+          dueDate: upcoming[0].dueDate,
+          priority: upcoming[0].priority,
+          category: upcoming[0].category,
+          overdue: upcoming[0].dueDate < today,
+        }
+      : null;
+
+    const isEmpty =
+      tasks.length === 0 &&
+      expenses.length === 0 &&
+      goals.length === 0 &&
+      notes.length === 0;
+
     return {
       pending,
       completed,
@@ -148,6 +183,11 @@ export function DashboardView({
       recentNotes,
       totalTasks: tasks.length,
       notesCount: notes.length,
+      tasksDueToday,
+      spentThisWeek,
+      notesUpdatedToday,
+      priorityAlert,
+      isEmpty,
     };
   }, [tasks, expenses, goals, notes]);
 
@@ -219,21 +259,25 @@ export function DashboardView({
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
               {greeting()}, {studentName}
             </h1>
-            <p className="max-w-xl text-sm text-background/90">
-              {stats.dueTodayOrOverdue.length > 0 ? (
-                <>
-                  {stats.dueTodayOrOverdue.length} task
-                  {stats.dueTodayOrOverdue.length === 1 ? "" : "s"} due today
-                  {stats.overdueCount > 0
-                    ? ` · ${stats.overdueCount} overdue`
-                    : ""}
-                  .
-                </>
-              ) : (
-                "All caught up for today. Nice work."
-              )}{" "}
-              Spent {formatINR(stats.monthTotal)} this month.
-            </p>
+            {/* Dynamic "Today's Overview" */}
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-background/90">
+              <span className="flex items-center gap-1.5">
+                <span className="font-display text-base">{stats.tasksDueToday}</span>
+                task{stats.tasksDueToday === 1 ? "" : "s"} due today
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-display text-base">{formatINR(stats.spentThisWeek)}</span>
+                spent this week
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-display text-base">{stats.activeGoals.length}</span>
+                active study goal{stats.activeGoals.length === 1 ? "" : "s"}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-display text-base">{stats.notesUpdatedToday}</span>
+                note{stats.notesUpdatedToday === 1 ? "" : "s"} updated today
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -253,6 +297,94 @@ export function DashboardView({
           </div>
         </div>
       </div>
+
+      {/* ---------- Empty-workspace getting started CTA ---------- */}
+      {stats.isEmpty ? (
+        <div className="border-2 border-[var(--pixel-line)] bg-card p-6 pixel-shadow">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="flex items-center gap-2 text-lg font-bold">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Your workspace is empty
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Start fresh by adding your first task, or load demo data to look
+                around.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => onNavigate("tasks")}>
+                <Plus className="h-4 w-4" /> Add your first task
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  loadDemoData();
+                  toast.success("Demo data loaded");
+                }}
+              >
+                <Sparkles className="h-4 w-4" /> Load demo data
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ---------- Priority alert ---------- */}
+      {stats.priorityAlert ? (
+        <button
+          onClick={() => onNavigate("tasks")}
+          className={cn(
+            "flex w-full items-center gap-3 border-2 p-4 text-left transition-all pixel-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5",
+            stats.priorityAlert.overdue
+              ? "border-[var(--pixel-line)] bg-destructive/10"
+              : "border-[var(--pixel-line)] bg-accent/15"
+          )}
+          aria-label="Priority alert — go to tasks"
+        >
+          <span
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)]",
+              stats.priorityAlert.overdue
+                ? "bg-destructive text-white"
+                : "bg-accent text-accent-foreground"
+            )}
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Priority alert
+            </p>
+            <p className="truncate text-sm font-bold">
+              {stats.priorityAlert.title}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge
+              variant="outline"
+              className={PRIORITY_STYLES[stats.priorityAlert.priority].className}
+            >
+              <span
+                className={`h-1.5 w-1.5 ${PRIORITY_STYLES[stats.priorityAlert.priority].dot}`}
+              />
+              {stats.priorityAlert.priority}
+            </Badge>
+            <span
+              className={cn(
+                "text-xs font-bold",
+                stats.priorityAlert.overdue
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              )}
+            >
+              {stats.priorityAlert.overdue
+                ? relativeDay(stats.priorityAlert.dueDate)
+                : `due ${relativeDay(stats.priorityAlert.dueDate)}`}
+            </span>
+          </div>
+        </button>
+      ) : null}
 
       {/* ---------- Stat cards ---------- */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -278,7 +410,7 @@ export function DashboardView({
         >
           <StatCard
             icon={<Wallet className="h-4 w-4" />}
-            label="Spent"
+            label="Spent / month"
             value={formatINR(stats.monthTotal)}
             tone="primary"
             sub={`${stats.catRows.length} categories`}

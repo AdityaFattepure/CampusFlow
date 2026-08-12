@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useExpenseStore } from "@/lib/store";
+import { useExpenseStore } from "@/lib/stores";
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   EXPENSE_CATEGORIES,

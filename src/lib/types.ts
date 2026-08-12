@@ -77,7 +77,8 @@ export type ModuleKey =
   | "tasks"
   | "expenses"
   | "study"
-  | "notes";
+  | "notes"
+  | "settings";
 
 // Input shapes (omit generated fields)
 export type TaskInput = Omit<Task, "id" | "createdAt" | "completed">;
