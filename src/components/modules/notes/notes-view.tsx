@@ -177,16 +177,16 @@ export function NotesView() {
         />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+            <Skeleton key={i} className="h-28 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
           ))}
         </div>
         <div className="flex flex-col gap-4 sm:flex-row">
-          <Skeleton className="h-9 flex-1 rounded-md" />
-          <Skeleton className="h-9 w-40 rounded-md" />
+          <Skeleton className="h-9 flex-1 border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
+          <Skeleton className="h-9 w-40 border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-xl" />
+            <Skeleton key={i} className="h-44 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
           ))}
         </div>
       </div>
@@ -214,6 +214,7 @@ export function NotesView() {
           value={stats.total}
           sub="Across all categories"
           tone="primary"
+          display
         />
         <StatCard
           icon={<Hash className="size-4" />}
@@ -221,6 +222,7 @@ export function NotesView() {
           value={stats.academics}
           sub="Subject notes captured"
           tone="teal"
+          display
         />
         <StatCard
           icon={<CalendarClock className="size-4" />}
@@ -228,6 +230,7 @@ export function NotesView() {
           value={stats.updatedToday}
           sub="Notes touched today"
           tone="amber"
+          display
         />
       </div>
 
@@ -246,7 +249,7 @@ export function NotesView() {
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="absolute right-2 top-1/2 -translate-y-1/2 border-2 border-[var(--pixel-line)] bg-card p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Clear search"
             >
               <X className="size-4" />
@@ -286,17 +289,17 @@ export function NotesView() {
               type="button"
               onClick={() => setCategoryFilter(c)}
               className={
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+                "inline-flex items-center gap-1.5 border-2 border-[var(--pixel-line)] px-2.5 py-1 text-xs font-semibold transition-colors " +
                 (active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground")
+                  ? "bg-primary text-primary-foreground pixel-inset"
+                  : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground")
               }
               aria-pressed={active}
             >
               <span>{c === "All" ? "All" : c}</span>
               <span
                 className={
-                  "rounded-full px-1.5 text-[10px] tabular-nums " +
+                  "px-1.5 text-[10px] tabular-nums " +
                   (active
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-muted text-muted-foreground")
@@ -346,11 +349,11 @@ export function NotesView() {
           {filtered.map((note) => (
             <Card
               key={note.id}
-              className="group gap-0 p-5 transition-shadow hover:shadow-md"
+              className="group gap-0 p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-2">
-                  <h3 className="truncate text-sm font-medium">
+                  <h3 className="truncate text-sm font-bold">
                     {note.title}
                   </h3>
                   <Badge
@@ -364,7 +367,7 @@ export function NotesView() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="size-7 text-muted-foreground hover:text-foreground"
+                    className="size-7 border-2 border-transparent text-muted-foreground hover:border-[var(--pixel-line)] hover:bg-muted hover:text-foreground"
                     onClick={() => openEdit(note)}
                     aria-label={`Edit note: ${note.title}`}
                   >
@@ -379,7 +382,7 @@ export function NotesView() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-7 text-muted-foreground hover:text-destructive"
+                        className="size-7 border-2 border-transparent text-muted-foreground hover:border-[var(--pixel-line)] hover:bg-muted hover:text-destructive"
                         aria-label={`Delete note: ${note.title}`}
                       >
                         <Trash2 className="size-3.5" />

@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { GraduationCap, Pencil, Check } from "lucide-react";
+import { Pencil, Check } from "lucide-react";
 import { NAV_ITEMS } from "./nav-config";
+import { PixelLogo } from "./pixel-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationsPopover } from "./notifications-popover";
 import { Button } from "@/components/ui/button";
@@ -37,19 +38,16 @@ export function AppShell() {
     }
   };
 
-  // Render a static, Radix-free skeleton during SSR and the initial client
-  // hydration render (matches the server output exactly), then swap in the
-  // fully interactive app once mounted. This eliminates hydration mismatches
-  // that Radix Popover/Tooltip/Dialog `useId` ids would otherwise trigger
-  // between server and client, which is appropriate for a localStorage app.
+  // Radix-free static skeleton during SSR + first client render so hydration
+  // matches exactly; the interactive pixel app mounts after.
   if (!hydrated) {
     return <AppShellSkeleton />;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="flex min-h-screen flex-col bg-background pb-[calc(3.75rem+env(safe-area-inset-bottom))] lg:pb-0">
       {/* ---------- Mobile top bar ---------- */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/85 px-4 py-2.5 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b-2 border-[var(--pixel-line)] bg-background px-4 py-2.5 lg:hidden">
         <Brand />
         <div className="flex items-center gap-2">
           <NotificationsPopover onNavigate={navigate} />
@@ -59,13 +57,13 @@ export function AppShell() {
 
       <div className="flex flex-1">
         {/* ---------- Desktop sidebar ---------- */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-sidebar lg:flex">
-          <div className="flex items-center gap-2.5 border-b px-5 py-4">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r-2 border-[var(--pixel-line)] bg-sidebar lg:flex">
+          <div className="flex items-center gap-2.5 border-b-2 border-[var(--pixel-line)] px-5 py-4">
             <Brand />
           </div>
 
-          <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-            <p className="px-2 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
+            <p className="px-2 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Menu
             </p>
             {NAV_ITEMS.map((item) => {
@@ -77,29 +75,29 @@ export function AppShell() {
                   onClick={() => navigate(item.key)}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex w-full items-center gap-3 border-2 px-3 py-2.5 text-sm font-semibold transition-all",
                     isActive
-                      ? "bg-primary/12 text-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      ? "border-[var(--pixel-line)] bg-primary text-primary-foreground pixel-inset"
+                      : "border-transparent text-sidebar-foreground hover:border-[var(--pixel-line)] hover:bg-sidebar-accent"
                   )}
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" />
                   <span className="flex-1 text-left">{item.label}</span>
                   {isActive ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="h-2 w-2 bg-primary-foreground" />
                   ) : null}
                 </button>
               );
             })}
           </nav>
 
-          <div className="border-t p-3">
-            <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5">
+          <div className="border-t-2 border-[var(--pixel-line)] p-3">
+            <div className="flex items-center justify-between gap-2">
               <EditNameButton />
               <ThemeToggle />
             </div>
             <p className="px-2 pt-2 text-[11px] leading-relaxed text-muted-foreground">
-              All data is saved locally in your browser via localStorage.
+              Saved locally in your browser via localStorage.
             </p>
           </div>
         </aside>
@@ -107,13 +105,11 @@ export function AppShell() {
         {/* ---------- Main column ---------- */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Desktop header */}
-          <header className="sticky top-0 z-30 hidden items-center justify-between border-b bg-background/85 px-6 py-3 backdrop-blur lg:flex">
+          <header className="sticky top-0 z-30 hidden items-center justify-between border-b-2 border-[var(--pixel-line)] bg-background px-6 py-3 lg:flex">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>CampusFlow</span>
+              <span className="font-semibold text-foreground">CampusFlow</span>
               <span className="text-border">/</span>
-              <span className="font-medium text-foreground">
-                {NAV_ITEMS.find((n) => n.key === active)?.label}
-              </span>
+              <span>{NAV_ITEMS.find((n) => n.key === active)?.label}</span>
             </div>
             <div className="flex items-center gap-2">
               <NotificationsPopover onNavigate={navigate} />
@@ -126,13 +122,13 @@ export function AppShell() {
             </div>
           </main>
 
-          <footer className="border-t px-4 py-4 sm:px-6 lg:px-8">
+          <footer className="border-t-2 border-[var(--pixel-line)] bg-background px-4 py-4 sm:px-6 lg:px-8">
             <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-1 text-xs text-muted-foreground sm:flex-row">
               <span className="flex items-center gap-1.5">
-                <GraduationCap className="h-3.5 w-3.5 text-primary" />
-                CampusFlow — Student Productivity &amp; Expense Manager
+                <PixelLogo size={14} />
+                CampusFlow · Pixel Edition
               </span>
-              <span>Built with Next.js · Data stays in your browser</span>
+              <span>Data stays in your browser</span>
             </div>
           </footer>
         </div>
@@ -140,7 +136,7 @@ export function AppShell() {
 
       {/* ---------- Mobile bottom navigation ---------- */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 flex border-t bg-background/95 backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex border-t-2 border-[var(--pixel-line)] bg-background lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Primary"
       >
@@ -154,18 +150,13 @@ export function AppShell() {
               aria-current={isActive ? "page" : undefined}
               aria-label={item.label}
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1 border-t-2 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors",
                 isActive
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-primary bg-primary/12 text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon
-                className={cn(
-                  "h-5 w-5 transition-transform",
-                  isActive ? "scale-110" : ""
-                )}
-              />
+              <Icon className="h-5 w-5" />
               {item.shortLabel}
             </button>
           );
@@ -195,10 +186,10 @@ function renderModule(active: ModuleKey, navigate: (m: ModuleKey) => void) {
 function Brand() {
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
-        <GraduationCap className="h-[18px] w-[18px]" />
+      <span className="flex h-9 w-9 items-center justify-center border-2 border-[var(--pixel-line)] bg-primary pixel-shadow-sm">
+        <PixelLogo size={20} className="text-primary-foreground" />
       </span>
-      <span className="text-base font-semibold tracking-tight">
+      <span className="font-display text-sm tracking-wide">
         Campus<span className="text-primary">Flow</span>
       </span>
     </div>
@@ -207,83 +198,72 @@ function Brand() {
 
 /**
  * Static, Radix-free loading shell rendered on the server and during the first
- * client render so hydration matches exactly. No Popover/Tooltip/Dialog (which
- * use `useId`) appear here, so no id/attribute mismatches are possible.
+ * client render so hydration matches exactly. Mirrors the real layout's shape.
  */
 function AppShellSkeleton() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      {/* Mobile bar */}
-      <header className="flex items-center justify-between border-b px-4 py-2.5 lg:hidden">
+      <header className="flex items-center justify-between border-b-2 border-[var(--pixel-line)] px-4 py-2.5 lg:hidden">
         <Brand />
         <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-full border" />
-          <div className="h-9 w-9 rounded-full border" />
+          <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
+          <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
         </div>
       </header>
 
       <div className="flex flex-1">
-        {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-sidebar lg:flex">
-          <div className="flex items-center gap-2.5 border-b px-5 py-4">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r-2 border-[var(--pixel-line)] bg-sidebar lg:flex">
+          <div className="flex items-center gap-2.5 border-b-2 border-[var(--pixel-line)] px-5 py-4">
             <Brand />
           </div>
           <div className="flex-1 space-y-2 p-3">
-            <div className="h-3 w-10 rounded bg-muted" />
+            <div className="h-3 w-10 bg-muted" />
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                className="flex items-center gap-3 border-2 border-transparent px-3 py-2.5"
               >
-                <div className="h-[18px] w-[18px] rounded bg-muted" />
-                <div className="h-3.5 w-20 rounded bg-muted" />
+                <div className="h-[18px] w-[18px] bg-muted" />
+                <div className="h-3.5 w-20 bg-muted" />
               </div>
             ))}
           </div>
-          <div className="border-t p-3">
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="h-7 w-7 rounded-full bg-muted" />
-              <div className="h-3.5 w-16 rounded bg-muted" />
-            </div>
-          </div>
         </aside>
 
-        {/* Main column */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="hidden h-14 items-center justify-between border-b px-6 lg:flex">
-            <div className="h-3.5 w-40 rounded bg-muted" />
-            <div className="h-9 w-9 rounded-full border" />
+          <header className="hidden h-[3.05rem] items-center justify-between border-b-2 border-[var(--pixel-line)] px-6 lg:flex">
+            <div className="h-3.5 w-40 bg-muted" />
+            <div className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
           </header>
           <main className="flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
             <div className="mx-auto w-full max-w-6xl space-y-5">
-              <div className="h-32 animate-pulse rounded-2xl bg-gradient-to-br from-emerald-500/80 to-teal-600/80" />
+              <div className="h-40 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
               <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-28 animate-pulse rounded-xl border"
+                    className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm"
                   />
                 ))}
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="h-72 animate-pulse rounded-xl border lg:col-span-2" />
-                <div className="h-72 animate-pulse rounded-xl border" />
+                <div className="h-72 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow lg:col-span-2" />
+                <div className="h-72 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
               </div>
             </div>
           </main>
-          <footer className="h-14 border-t px-6" />
+          <footer className="h-14 border-t-2 border-[var(--pixel-line)]" />
         </div>
       </div>
 
-      {/* Mobile bottom nav placeholder */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 flex h-16 border-t bg-background lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex h-16 border-t-2 border-[var(--pixel-line)] bg-background lg:hidden">
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
             className="flex flex-1 flex-col items-center justify-center gap-1 py-2"
           >
-            <div className="h-5 w-5 rounded bg-muted" />
-            <div className="h-2 w-8 rounded bg-muted" />
+            <div className="h-5 w-5 bg-muted" />
+            <div className="h-2 w-8 bg-muted" />
           </div>
         ))}
       </nav>
@@ -307,13 +287,13 @@ function EditNameButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent"
+        className="flex min-w-0 flex-1 items-center gap-2 border-2 border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--pixel-line)] hover:bg-sidebar-accent"
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)] bg-primary/15 text-xs font-bold text-primary">
           {initial}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">
+          <span className="block truncate text-sm font-semibold">
             {studentName}
           </span>
           <span className="block text-[11px] text-muted-foreground">
@@ -326,7 +306,9 @@ function EditNameButton() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Your name</DialogTitle>
+            <DialogTitle className="font-display text-base">
+              Your name
+            </DialogTitle>
             <DialogDescription>
               We use this to greet you on the dashboard. Saved locally.
             </DialogDescription>

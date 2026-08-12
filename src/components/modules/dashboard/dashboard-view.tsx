@@ -13,12 +13,10 @@ import {
 import {
   ArrowRight,
   CheckCircle2,
-  Circle,
   GraduationCap,
   ListTodo,
   NotebookPen,
   Wallet,
-  Sparkles,
   CalendarDays,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,12 +53,33 @@ import {
 import type { ModuleKey, ExpenseCategory } from "@/lib/types";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good Morning";
   if (h < 17) return "Good Afternoon";
   return "Good Evening";
+}
+
+/** A row of pixel "HP" blocks representing a 0-100 value in N segments. */
+function PixelBar({
+  value,
+  segments = 10,
+  className,
+}: {
+  value: number;
+  segments?: number;
+  className?: string;
+}) {
+  const lit = Math.round((Math.max(0, Math.min(100, value)) / 100) * segments);
+  return (
+    <div className={cn("pixel-segments", className)} aria-hidden>
+      {Array.from({ length: segments }).map((_, i) => (
+        <i key={i} className={i < lit ? "on" : ""} />
+      ))}
+    </div>
+  );
 }
 
 export function DashboardView({
@@ -132,7 +151,6 @@ export function DashboardView({
     };
   }, [tasks, expenses, goals, notes]);
 
-  // Chart config derived from categories present this month.
   const chartConfig: ChartConfig = useMemo(() => {
     const c: ChartConfig = {};
     for (const row of stats.catRows) {
@@ -156,60 +174,78 @@ export function DashboardView({
 
   return (
     <div className="space-y-5">
-      {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 p-6 text-white shadow-sm sm:p-7">
+      {/* ---------- Pixelscape hero ---------- */}
+      <div
+        className="relative overflow-hidden border-2 border-[var(--pixel-line)] pixel-shadow"
+        style={{
+          background:
+            "linear-gradient(to bottom, var(--accent) 0 38%, var(--primary) 38% 68%, var(--chart-4) 68% 100%)",
+        }}
+      >
+        {/* pixel sun (square + inner block) */}
         <div
-          className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-2xl"
+          className="pointer-events-none absolute right-7 top-5 h-12 w-12 border-2 border-[var(--pixel-line)] bg-background"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-16 right-24 h-40 w-40 rounded-full bg-teal-300/20 blur-2xl"
+          className="pointer-events-none absolute right-10 top-8 h-6 w-6 border-2 border-[var(--pixel-line)] bg-accent"
           aria-hidden
         />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
-              <CalendarDays className="h-3.5 w-3.5" />
+        {/* dither transition bands (pixel color steps) */}
+        <div
+          className="pixel-dither pointer-events-none absolute inset-x-0 top-[34%] h-2 opacity-70"
+          aria-hidden
+        />
+        <div
+          className="pixel-dither pointer-events-none absolute inset-x-0 top-[64%] h-2 opacity-70"
+          aria-hidden
+        />
+        {/* horizon line */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-[68%] h-[2px] bg-[var(--pixel-line)]"
+          aria-hidden
+        />
+        {/* dithered ground strip */}
+        <div
+          className="pixel-dither pointer-events-none absolute inset-x-0 bottom-0 h-7"
+          aria-hidden
+        />
+        <div className="relative flex flex-col gap-4 p-6 text-background sm:p-7 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2.5">
+            <div className="inline-flex items-center gap-2 border-2 border-[var(--pixel-line)] bg-background px-3 py-1 text-xs font-semibold text-foreground pixel-shadow-sm">
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
               {todayLabel}
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {greeting()}, {studentName} 👋
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {greeting()}, {studentName}
             </h1>
-            <p className="max-w-xl text-sm text-white/85">
+            <p className="max-w-xl text-sm text-background/90">
               {stats.dueTodayOrOverdue.length > 0 ? (
                 <>
-                  You have{" "}
-                  <span className="font-semibold">
-                    {stats.dueTodayOrOverdue.length} task
-                    {stats.dueTodayOrOverdue.length === 1 ? "" : "s"}
-                  </span>{" "}
-                  due today
+                  {stats.dueTodayOrOverdue.length} task
+                  {stats.dueTodayOrOverdue.length === 1 ? "" : "s"} due today
                   {stats.overdueCount > 0
                     ? ` · ${stats.overdueCount} overdue`
                     : ""}
                   .
                 </>
               ) : (
-                "You're all caught up for today. Nice work!"
+                "All caught up for today. Nice work."
               )}{" "}
-              Spent{" "}
-              <span className="font-semibold">{formatINR(stats.monthTotal)}</span>{" "}
-              this month.
+              Spent {formatINR(stats.monthTotal)} this month.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              variant="secondary"
-              className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+              className="bg-background text-foreground hover:bg-background/90"
               onClick={() => onNavigate("tasks")}
             >
               <ListTodo className="h-4 w-4" /> Add task
             </Button>
             <Button
               size="sm"
-              variant="secondary"
-              className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+              className="bg-background text-foreground hover:bg-background/90"
               onClick={() => onNavigate("expenses")}
             >
               <Wallet className="h-4 w-4" /> Add expense
@@ -218,7 +254,7 @@ export function DashboardView({
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* ---------- Stat cards ---------- */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <button
           className="text-left"
@@ -227,11 +263,12 @@ export function DashboardView({
         >
           <StatCard
             icon={<ListTodo className="h-4 w-4" />}
-            label="Pending tasks"
+            label="Tasks"
             value={stats.pending.length}
             tone="amber"
+            display
             sub={`${stats.totalTasks} total · ${stats.completed.length} done`}
-            className="h-full transition-shadow hover:shadow-md"
+            className="h-full"
           />
         </button>
         <button
@@ -241,11 +278,11 @@ export function DashboardView({
         >
           <StatCard
             icon={<Wallet className="h-4 w-4" />}
-            label="Spent this month"
+            label="Spent"
             value={formatINR(stats.monthTotal)}
             tone="primary"
             sub={`${stats.catRows.length} categories`}
-            className="h-full transition-shadow hover:shadow-md"
+            className="h-full"
           />
         </button>
         <button
@@ -255,11 +292,12 @@ export function DashboardView({
         >
           <StatCard
             icon={<GraduationCap className="h-4 w-4" />}
-            label="Study progress"
+            label="Study"
             value={`${stats.overallProgress}%`}
             tone="teal"
+            display
             sub={`${stats.activeGoals.length} active goals`}
-            className="h-full transition-shadow hover:shadow-md"
+            className="h-full"
           />
         </button>
         <button
@@ -269,24 +307,24 @@ export function DashboardView({
         >
           <StatCard
             icon={<NotebookPen className="h-4 w-4" />}
-            label="Notes saved"
+            label="Notes"
             value={stats.notesCount}
             tone="violet"
+            display
             sub="Quick capture"
-            className="h-full transition-shadow hover:shadow-md"
+            className="h-full"
           />
         </button>
       </div>
 
-      {/* Today's tasks + expense overview */}
+      {/* ---------- Today's tasks + expense overview ---------- */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Today's tasks */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between border-b">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Today&apos;s tasks</CardTitle>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ListTodo className="h-4 w-4 text-primary" />
+              Today&apos;s tasks
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -307,7 +345,7 @@ export function DashboardView({
               </div>
             ) : (
               <ScrollArea className="max-h-80 scroll-area-thin">
-                <ul className="divide-y">
+                <ul className="divide-y-2 divide-[var(--pixel-line)]/40">
                   {stats.dueTodayOrOverdue.slice(0, 8).map((t) => {
                     const overdue = t.dueDate < todayISO();
                     return (
@@ -326,7 +364,7 @@ export function DashboardView({
                           aria-label={`Mark "${t.title}" complete`}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
+                          <p className="truncate text-sm font-semibold">
                             {t.title}
                           </p>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -341,16 +379,17 @@ export function DashboardView({
                               className={PRIORITY_STYLES[t.priority].className}
                             >
                               <span
-                                className={`h-1.5 w-1.5 rounded-full ${PRIORITY_STYLES[t.priority].dot}`}
+                                className={`h-1.5 w-1.5 ${PRIORITY_STYLES[t.priority].dot}`}
                               />
                               {t.priority}
                             </Badge>
                             <span
-                              className={`text-xs ${
+                              className={cn(
+                                "text-xs",
                                 overdue
-                                  ? "font-medium text-rose-600 dark:text-rose-300"
+                                  ? "font-bold text-destructive"
                                   : "text-muted-foreground"
-                              }`}
+                              )}
                             >
                               {relativeDay(t.dueDate)}
                             </span>
@@ -365,13 +404,12 @@ export function DashboardView({
           </CardContent>
         </Card>
 
-        {/* Expense overview */}
         <Card>
-          <CardHeader className="flex-row items-center justify-between border-b">
-            <div className="flex items-center gap-2">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+            <CardTitle className="flex items-center gap-2 text-base">
               <Wallet className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Expense overview</CardTitle>
-            </div>
+              Expenses
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -391,10 +429,10 @@ export function DashboardView({
             ) : (
               <>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Total this month
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    This month
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">
+                  <span className="font-display text-lg">
                     {formatINR(stats.monthTotal)}
                   </span>
                 </div>
@@ -407,10 +445,7 @@ export function DashboardView({
                     layout="vertical"
                     margin={{ left: 0, right: 8, top: 0, bottom: 0 }}
                   >
-                    <CartesianGrid
-                      horizontal={false}
-                      strokeDasharray="3 3"
-                    />
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                     <XAxis type="number" hide />
                     <YAxis
                       type="category"
@@ -429,7 +464,7 @@ export function DashboardView({
                         />
                       }
                     />
-                    <Bar dataKey="amount" radius={4}>
+                    <Bar dataKey="amount" radius={0}>
                       {stats.catRows.map((row) => (
                         <Cell key={row.category} fill={row.fill} />
                       ))}
@@ -449,14 +484,14 @@ export function DashboardView({
                       >
                         <span className="flex items-center gap-2">
                           <span
-                            className="h-2.5 w-2.5 rounded-full"
+                            className="h-3 w-3 border-2 border-[var(--pixel-line)]"
                             style={{ backgroundColor: row.fill }}
                           />
                           <span className="text-muted-foreground">
                             {EXPENSE_CATEGORY_META[row.category].label}
                           </span>
                         </span>
-                        <span className="tabular-nums font-medium">
+                        <span className="font-semibold tabular-nums">
                           {formatINR(row.amount)}
                           <span className="ml-1.5 text-xs text-muted-foreground">
                             {pct}%
@@ -472,15 +507,14 @@ export function DashboardView({
         </Card>
       </div>
 
-      {/* Study progress + recent notes */}
+      {/* ---------- Study progress + recent notes ---------- */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Study progress */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between border-b">
-            <div className="flex items-center gap-2">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+            <CardTitle className="flex items-center gap-2 text-base">
               <GraduationCap className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Study progress</CardTitle>
-            </div>
+              Study progress
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -490,20 +524,17 @@ export function DashboardView({
               View all <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center">
-                <div className="text-3xl font-semibold tabular-nums text-primary">
+          <CardContent className="space-y-5 pt-4">
+            <div className="space-y-2">
+              <div className="flex items-end justify-between">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Overall
+                </span>
+                <span className="font-display text-2xl text-primary">
                   {stats.overallProgress}%
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  overall
                 </span>
               </div>
-              <Progress
-                value={stats.overallProgress}
-                className="h-2.5 flex-1"
-              />
+              <PixelBar value={stats.overallProgress} segments={20} />
             </div>
             {stats.topGoals.length === 0 ? (
               <EmptyState
@@ -512,20 +543,22 @@ export function DashboardView({
                 description="Add a goal to start tracking progress."
               />
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-3.5">
                 {stats.topGoals.map((g) => (
                   <li key={g.id} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2 font-medium">
-                        <span className="text-muted-foreground">{g.subject}</span>
-                        <span className="text-foreground">·</span>
+                      <span className="flex items-center gap-2 font-semibold">
+                        <span className="text-muted-foreground">
+                          {g.subject}
+                        </span>
+                        <span>·</span>
                         <span className="truncate">{g.topic}</span>
                       </span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="font-bold tabular-nums text-primary">
                         {g.progress}%
                       </span>
                     </div>
-                    <Progress value={g.progress} className="h-1.5" />
+                    <Progress value={g.progress} className="h-3" />
                   </li>
                 ))}
               </ul>
@@ -533,13 +566,12 @@ export function DashboardView({
           </CardContent>
         </Card>
 
-        {/* Recent notes */}
         <Card>
-          <CardHeader className="flex-row items-center justify-between border-b">
-            <div className="flex items-center gap-2">
+          <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+            <CardTitle className="flex items-center gap-2 text-base">
               <NotebookPen className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Recent notes</CardTitle>
-            </div>
+              Recent notes
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -559,7 +591,7 @@ export function DashboardView({
                 />
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y-2 divide-[var(--pixel-line)]/40">
                 {stats.recentNotes.map((n) => (
                   <li
                     key={n.id}
@@ -567,10 +599,8 @@ export function DashboardView({
                     onClick={() => onNavigate("notes")}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-sm font-medium">{n.title}</p>
-                      <Badge variant="outline" className="shrink-0">
-                        {n.category}
-                      </Badge>
+                      <p className="truncate text-sm font-semibold">{n.title}</p>
+                      <Badge variant="outline">{n.category}</Badge>
                     </div>
                     <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
                       {n.content}
@@ -592,18 +622,18 @@ export function DashboardView({
 function DashboardSkeleton() {
   return (
     <div className="space-y-5">
-      <div className="h-32 animate-pulse rounded-2xl bg-muted" />
+      <div className="h-40 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-28 animate-pulse rounded-xl bg-muted"
+            className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm"
           />
         ))}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="h-72 animate-pulse rounded-xl bg-muted lg:col-span-2" />
-        <div className="h-72 animate-pulse rounded-xl bg-muted" />
+        <div className="h-72 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow lg:col-span-2" />
+        <div className="h-72 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
       </div>
     </div>
   );

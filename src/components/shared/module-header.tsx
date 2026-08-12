@@ -4,8 +4,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Standard page header for each module: icon + title + description on the left,
- * arbitrary actions on the right. Stacks on small screens.
+ * Pixel module header: square icon tile + title + description on the left,
+ * actions on the right. Stacks on small screens.
  */
 export function ModuleHeader({
   icon,
@@ -29,12 +29,12 @@ export function ModuleHeader({
     >
       <div className="flex items-start gap-3">
         {icon ? (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)] bg-primary/15 text-primary pixel-shadow-sm">
             {icon}
           </div>
         ) : null}
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           {description ? (
             <p className="text-sm text-muted-foreground">{description}</p>
           ) : null}

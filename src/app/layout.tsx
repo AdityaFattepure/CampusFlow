@@ -1,25 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const pixel = Pixelify_Sans({
+  variable: "--font-pixel",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const press = Press_Start_2P({
+  variable: "--font-press",
   subsets: ["latin"],
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "CampusFlow — Student Productivity & Expense Manager",
+  title: "CampusFlow — Pixel Edition",
   description:
-    "Plan tasks, track expenses, manage study goals and notes from a single campus dashboard. Built for students.",
+    "A calm, pixel-art student productivity & expense manager. Tasks, expenses, study goals and notes — all in a mindful Pixelscape.",
   keywords: [
     "CampusFlow",
+    "pixelscape",
+    "pixel",
     "student productivity",
     "expense tracker",
     "task manager",
@@ -31,9 +37,9 @@ export const metadata: Metadata = {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "CampusFlow",
+    title: "CampusFlow — Pixel Edition",
     description:
-      "Student Productivity & Expense Management System — tasks, expenses, study goals & notes.",
+      "A calm, pixel-art student productivity & expense manager. Mindful to use.",
     siteName: "CampusFlow",
     type: "website",
   },
@@ -47,9 +53,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${pixel.variable} ${press.variable} antialiased bg-background text-foreground`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <div className="pixelscape">{children}</div>
+        </ThemeProvider>
         <SonnerToaster position="top-center" richColors closeButton />
       </body>
     </html>

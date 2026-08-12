@@ -1,0 +1,470 @@
+     1→     1→# CampusFlow — Worklog
+     2→     2→
+     3→     3→CampusFlow is a Student Productivity & Expense Management System (Next.js 16 +
+     4→     4→TS + Tailwind 4 + shadcn/ui). All data is persisted client-side in `localStorage`
+     5→     5→via Zustand `persist` stores. Single visible route: `/`.
+     6→     6→
+     7→     7→---
+     8→     8→Task ID: 1
+     9→     9→Agent: main (orchestrator)
+    10→    10→Task: Build the foundation — theme palette, domain types, localStorage-backed
+    11→    11→Zustand stores with seed data, formatting helpers, theme provider/toggle,
+    12→    12→hydration guard, and shared UI building blocks.
+    13→    13→
+    14→    14→Work Log:
+    15→    15→- Updated `src/app/globals.css` with an emerald "growth / productivity" palette
+    16→    16→  (primary = emerald, no indigo/blue chrome). Defined chart hues + sidebar
+    17→    17→  tokens for light & dark. Added a thin custom scrollbar utility.
+    18→    18→- `src/lib/types.ts` — all domain types: `Task`, `Expense`, `StudyGoal`,
+    19→    19→  `Note`, plus `TaskCategory`/`ExpenseCategory`/`NoteCategory`/`Priority`
+    20→    20→  literal unions and `ModuleKey`. Exported the category literal arrays.
+    21→    21→- `src/lib/format.ts` — `uid()`, date helpers (`todayISO`, `daysFromTodayISO`,
+    22→    22→  `formatDate`, `relativeDay`, `isSameMonth`, `monthLabel`), INR currency
+    23→    23→  formatting (`formatINR`, `formatINRCompact`), and visual meta maps
+    24→    24→  (`PRIORITY_STYLES`, `EXPENSE_CATEGORY_META`, `NOTE_CATEGORY_STYLES`,
+    25→    25→  `TASK_CATEGORY_STYLES`).
+    26→    26→- `src/lib/store.ts` — 5 Zustand `persist` stores, each with its own
+    27→    27→  localStorage key: `campusflow:tasks`, `campusflow:expenses`,
+    28→    28→  `campusflow:studyGoals`, `campusflow:notes`, `campusflow:settings`.
+    29→    29→  Initial state carries realistic SEED data (Java assignment, DBMS tasks,
+    30→    30→  dinner expense, Java Collections goal, DBMS note, etc.) so the app is
+    31→    31→  populated on first visit; user edits/deletions always win afterwards.
+    32→    32→  Store APIs:
+    33→    33→  - `useTaskStore`: tasks[], addTask, updateTask, deleteTask, toggleTask,
+    34→    34→    setCompleted, clearCompleted
+    35→    35→  - `useExpenseStore`: expenses[], addExpense, updateExpense, deleteExpense
+    36→    36→  - `useStudyStore`: goals[], addGoal, updateGoal, deleteGoal, setProgress,
+    37→    37→    toggleGoal  (setProgress auto-marks completed at 100%)
+    38→    38→  - `useNoteStore`: notes[], addNote, updateNote, deleteNote
+    39→    39→  - `useSettingsStore`: studentName ("Aditya" default), setStudentName
+    40→    40→- `src/hooks/use-hydrated.ts` — `useHydrated()` mounted-flag hook to gate
+    41→    41→  rendering of localStorage-sourced data and avoid SSR hydration mismatches.
+    42→    42→- `src/components/theme-provider.tsx` + `src/components/theme-toggle.tsx` —
+    43→    43→  next-themes provider (class strategy, default light, no system) and an
+    44→    44→  animated sun/moon toggle button.
+    45→    45→- Shared UI building blocks (in `src/components/shared/`):
+    46→    46→  - `module-header.tsx` — `ModuleHeader({icon,title,description,actions})`
+    47→    47→  - `stat-card.tsx` — `StatCard({icon,label,value,sub,tone})` tone in
+    48→    48→    primary|amber|rose|violet|teal
+    49→    49→  - `empty-state.tsx` — `EmptyState({icon,title,description,action})`
+    50→    50→  - `confirm-dialog.tsx` — `ConfirmDialog({trigger,onConfirm,...})` (wraps
+    51→    51→    shadcn AlertDialog for delete confirmations)
+    52→    52→- `src/app/layout.tsx` — wrapped children in `<ThemeProvider>`, added
+    53→    53→  Sonner toaster (top-center, richColors), CampusFlow metadata.
+    54→    54→- Layout dir created: `src/components/layout`, `src/components/modules/*`.
+    55→    55→
+    56→    56→Stage Summary:
+    57→    57→- Foundation complete. Design language: emerald primary, rounded-xl cards with
+    58→    58→  `p-5`/`p-6`, `ModuleHeader` at top of each module, `StatCard` for KPIs,
+    59→    59→  `EmptyState` for empty lists, `ConfirmDialog` for deletes, toasts via
+    60→    60→  `sonner` (`import { toast } from "sonner"`).
+    61→    61→- Available shadcn/ui components (all in `src/components/ui/`): button, card,
+    62→    62→  badge, input, textarea, label, select, checkbox, switch, dialog,
+    63→    63→  alert-dialog, popover, tooltip, tabs, progress, slider, scroll-area,
+    64→    64→  separator, dropdown-menu, sheet, command, table, calendar, form, chart,
+    65→    65→  sidebar, etc. Icons: `lucide-react`.
+    66→    66→- IMPORTANT for subagents: each module view MUST start with `"use client";`,
+    67→    67→  read its store via the hooks above, gate data display with `useHydrated()`,
+    68→    68→  use `toast` from `sonner` for feedback, and reuse the shared components.
+    69→    69→  No new route files — only components under `src/components/modules/<name>/`.
+    70→    70→
+    71→    71→---
+    72→    72→Task ID: 4-d
+    73→    73→Agent: notes-module-builder
+    74→    74→Task: Build the Notes module view component.
+    75→    75→
+    76→    76→Work Log:
+    77→    77→- Read the foundation (types, format helpers, store, shared components, the
+    78→    78→  shadcn ui components I planned to use: button, card, badge, input, textarea,
+    79→    79→  label, select, dialog, skeleton) and confirmed exact export names + prop
+    80→    80→  shapes before writing any code.
+    81→    81→- Created `src/components/modules/notes/notes-view.tsx` — a single client
+    82→    82→  component `NotesView()` (no props) that reads `useNoteStore()`.
+    83→    83→- Implemented create/edit via a single shared `Dialog` whose mode is driven by
+    84→    84→  `editingId` (null = create). Form state = `{ title, content, category }`,
+    85→    85→  default category "Academics". Validation: trimmed title + content must be
+    86→    86→  non-empty (also marked `required` on the inputs as a progressive-enhancement
+    87→    87→  fallback). On submit → `addNote`/`updateNote` + toast "Note created" /
+    88→    88→  "Note updated".
+    89→    89→- Delete via the shared `ConfirmDialog` wrapping a per-card trash icon button;
+    90→    90→  on confirm → `deleteNote` + toast "Note deleted".
+    91→    91→- Search: case-insensitive match on title OR content; clearable (X button).
+    92→    92→- Category filter: a `Select` ("All categories" + 5 categories) plus a
+    93→    93→  quick-filter chip row showing per-category counts (and total for "All").
+    94→    94→- Notes grid: `grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4`. Each card
+    95→    95→  shows title (truncate 1 line) + tinted `NOTE_CATEGORY_STYLES` Badge +
+    96→    96→  Edit/Delete icon buttons in the header, a `line-clamp-4 whitespace-pre-line`
+    97→    97→  content preview, and a footer "Updated {formatDate(updatedAt)}". Picked the
+    98→    98→  explicit-icon-button approach (consistent — no nested-button issues).
+    99→    99→- Stats: 3 `StatCard`s — Total notes (primary), Academics count (teal),
+   100→   100→  Updated today (amber). Computed via `useMemo` from store data.
+   101→   101→- Sort: newest `updatedAt` first (lexicographic ISO compare).
+   102→   102→- Hydration guard: `useHydrated()` → skeleton (header + 3 stat skeletons +
+   103→   103→  controls skeleton + 6 card skeletons) until mounted; no SSR mismatch.
+   104→   104→- Responsive + accessible: aria-labels on icon buttons / search / select,
+   105→   105→  `aria-pressed` on filter chips, `Label htmlFor` pairings, form `onSubmit`
+   106→   106→  with explicit submit button. Emerald design system throughout (primary +
+   107→   107→  teal/amber accents, no blue/indigo chrome).
+   108→   108→
+   109→   109→Stage Summary:
+   110→   110→- File created: `src/components/modules/notes/notes-view.tsx` (single file,
+   111→   111→  starts with `"use client";`, strict TS, no `any`).
+   112→   112→- Features: create / edit / delete notes, search by title or content,
+   113→   113→  filter by category (Select + count chips), responsive 3-col grid,
+   114→   114→  line-clamped content previews, 3 stat cards, newest-first sort, hydration
+   115→   115→  skeleton, sonner toasts for all mutations.
+   116→   116→- Notes: Reused the shared `ModuleHeader` / `StatCard` / `EmptyState` /
+   117→   117→  `ConfirmDialog` blocks verbatim. The dialog `onOpenChange` resets form +
+   118→   118→  `editingId` on close so re-opening never shows stale state. EmptyState
+   119→   119→  differentiates "no notes at all" (CTA: New Note) vs "no filter matches"
+   120→   120→  (CTA: Clear filters). The `Pin` icon from the suggested list was not needed.
+   121→   121→- Next: drop `<NotesView />` into the dashboard route's module switch.
+   122→   122→
+   123→   123→---
+   124→   124→Task ID: 4-a
+   125→   125→Agent: tasks-module-builder
+   126→   126→Task: Build the Tasks module view component (CRUD + search/filter/sort + stats).
+   127→   127→
+   128→   128→Work Log:
+   129→   129→- Read the foundation laid by Task 1: types (`Task`, `TaskInput`, `Priority`,
+   130→   130→  `TASK_CATEGORIES`), `useTaskStore` API, `format.ts` helpers (`formatDate`,
+   131→   131→  `relativeDay`, `todayISO`, `PRIORITY_STYLES`, `TASK_CATEGORY_STYLES`),
+   132→   132→  `useHydrated` hook, and shared components `ModuleHeader`/`StatCard`/
+   133→   133→  `EmptyState`/`ConfirmDialog`.
+   134→   134→- Inspected shadcn/ui source for `select`, `dialog`, `checkbox`, `button`,
+   135→   135→  `badge`, `input`, `textarea`, `label`, `card`, `skeleton`, `separator` to
+   136→   136→  confirm exact exported subcomponents and prop signatures before use.
+   137→   137→- Created `src/components/modules/tasks/tasks-view.tsx` as a single
+   138→   138→  `"use client";` file. Self-contained: pulls everything from `@/lib`,
+   139→   139→  `@/components/shared/*`, `@/components/ui/*`, `@/hooks/use-hydrated`,
+   140→   140→  `lucide-react`, and `sonner`. No new helper files.
+   141→   141→- Implemented a reusable `Field` wrapper (label + required marker + error
+   142→   142→  slot) kept inside the same file per the spec.
+   143→   143→- Implemented a `TaskFormDialog` (used for both Add and Edit) with controlled
+   144→   144→  local state, `(Re)seed on open` effect so opening in edit mode prefills the
+   145→   145→  form and opening in add mode resets it, inline title validation (disabled
+   146→   146→  submit + error message on attempt), native `<input type="date">` defaulting
+   147→   147→  to `todayISO()`, category & priority Selects, optional description textarea.
+   148→   148→  Submits via form `onSubmit` (preventDefault), toasts on success.
+   149→   149→- Implemented a `TasksSkeleton` (matches the layout — header, stats grid,
+   150→   150→  controls bar, task list) shown until `useHydrated()` returns true, to avoid
+   151→   151→  SSR/localStorage hydration mismatch.
+   152→   152→- Implemented the main `TasksView` with:
+   153→   153→  * `ModuleHeader` (icon, title "Tasks", description, Clear completed (ghost,
+   154→   154→    only when completedCount>0) + Add task actions).
+   155→   155→  * Stats row: `grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4` — Total
+   156→   156→    (primary), Pending (amber, sub="N due today"), Completed (teal, sub=%),
+   157→   157→    Overdue (rose). Overdue = `dueDate < todayISO() && !completed`.
+   158→   158→  * Controls Card with mobile-first `grid grid-cols-1 sm:grid-cols-2
+   159→   159→    lg:grid-cols-4 gap-2`: Search input (leading Search icon, clear "X" button,
+   160→   160→    aria-label), Category filter Select ("All categories" + 5 categories),
+   161→   161→    Priority filter Select ("All priorities" + Low/Medium/High), Sort Select
+   162→   162→    (Due earliest / Due latest / Priority high→low / Recently added; default
+   163→   163→    due-earliest which naturally surfaces overdue items first).
+   164→   164→  * Active-filters indicator ("Showing N of M tasks" + "Reset filters"
+   165→   165→    link) shown when search/category/priority are non-default.
+   166→   166→  * Task list as a `Card` of `divide-y` rows. Each row: Checkbox (toggle
+   167→   167→    complete), CheckCircle2/Circle status icon, title (line-through + muted when
+   168→   168→    completed), optional 2-line description, badges row (category via
+   169→   169→    TASK_CATEGORY_STYLES, priority via PRIORITY_STYLES with colored dot,
+   170→   170→    due-date chip showing formatDate + relativeDay in parentheses with
+   171→   171→    rose tone when overdue / amber when due today), edit icon button (opens
+   172→   172→    the same dialog prefilled), delete via `ConfirmDialog`.
+   173→   173→  * Two distinct empty states: "No tasks yet" (CTA = Add first task) when the
+   174→   174→    store is empty, and "No tasks match" (CTA = Reset filters) when filters
+   175→   175→    hide everything.
+   176→   176→- Toggled `toast.success` on add / edit / delete / toggle-complete /
+   177→   177→  toggle-pending / clear-completed. Strictly emerald palette; no blue/indigo.
+   178→   178→  All icon buttons carry `aria-label`s; Selects carry `aria-label`; search
+   179→   179→  input has `aria-label`.
+   180→   180→
+   181→   181→Stage Summary:
+   182→   182→- File created: `src/components/modules/tasks/tasks-view.tsx` (single file,
+   183→   183→  `"use client";`, default + named export `TasksView`).
+   184→   184→- Features implemented: Add / Edit / Delete / Toggle-complete (CRUD), text
+   185→   185→  search (title+description, case-insensitive), category filter, priority
+   186→   186→  filter, 4-way sort (default due-earliest), 4 StatCards (Total/Pending/
+   187→   187→  Completed/Overdue) with appropriate tones, Clear-completed action in header
+   188→   188→  (shown only when completed>0), active-filter indicator with reset, two
+   189→   189→  empty states (no tasks at all vs no matches), hydration skeleton,
+   190→   190→  responsive mobile-first layout (grid stacks 1→2→4 cols), accessibility
+   191→   191→  (aria-labels, label htmlFor pairing, semantic list), toasts via sonner.
+   192→   192→- Notes / decisions:
+   193→   193→  * Used natural page scroll for the task list (not a `ScrollArea`) per the
+   194→   194→    "Keep it simple" guidance in the spec.
+   195→   195→  * Sort by due-earliest uses plain `String.localeCompare` on yyyy-mm-dd —
+   196→   196→    overdue items (past dates) automatically bubble to the top.
+   197→   197→  * The form is a controlled dialog component with a `useEffect` that re-seeds
+   198→   198→    state whenever `open` flips to true; this avoids stale state between
+   199→   199→    add/edit sessions and removes the need for a `key` remount.
+   200→   200→  * Both `export function TasksView()` and `export default TasksView` are
+   201→   201→    provided so any import style works for the orchestrator.
+   202→   202→
+   203→   203→---
+   204→   204→Task ID: 4-c
+   205→   205→Agent: study-module-builder
+   206→   206→Task: Build the Study Planner module view component.
+   207→   207→
+   208→   208→Work Log:
+   209→   209→- Read the foundation (types.ts, store.ts, format.ts, use-hydrated hook) and the
+   210→   210→  shared components (module-header, stat-card, empty-state, confirm-dialog) plus
+   211→   211→  the shadcn primitives actually consumed (button, card, badge, input, label,
+   212→   212→  select, dialog, progress, slider) to confirm exact prop shapes — Slider is
+   213→   213→  radix-based and takes `value={[n]}` + `onValueChange={(v)=>v[0]}`; Progress is
+   214→   214→  `<Progress value={n} />`.
+   215→   215→- Created `src/components/modules/study/study-view.tsx` (single client component
+   216→   216→  file, starts with `"use client";`, strict TS, no `any`).
+   217→   217→- Internal pieces (all in the same file):
+   218→   218→  • `GoalFormDialog` — reused for Add & Edit. Fields: Subject (Input, required),
+   219→   219→    Topic (Input, required), Priority (Select, default "Medium"), Target date
+   220→   220→    (`<input type="date">`, default `daysFromTodayISO(7)`), Progress (Slider
+   221→   221→    0-100, default 0). Local form state re-seeds from `initial` whenever the
+   222→   222→    dialog opens (effect guarded on `open`); validation shows inline error for
+   223→   223→    empty subject/topic. `initial` is memoised in the parent so typing is never
+   224→   224→    wiped mid-edit.
+   225→   225→  • `GoalCard` — header (subject + priority badge via PRIORITY_STYLES, edit +
+   226→   226→    delete actions, delete wrapped in `ConfirmDialog`), topic line, progress
+   227→   227→    row (`<Progress>` + % label, green CheckCircle2 "Completed" when done),
+   228→   228→    interactive `Slider` (only when not completed, aria-labelled), footer with
+   229→   229→    `formatDate` + `relativeDay` chip (rose when overdue) and a
+   230→   230→    Mark complete / Reopen button wired to `toggleGoal`.
+   231→   231→  • `StudySkeleton` — pulse placeholders shown until `useHydrated()` returns true.
+   232→   232→- `StudyView` (exported):
+   233→   233→  • `ModuleHeader` with GraduationCap icon + "Add Goal" primary action.
+   234→   234→  • Featured "Overall Study Progress" Card (p-6) — big `text-4xl` %, sublabel
+   235→   235→    "across N goals", a TrendingUp chip ("X/N done"), and a `<Progress>` bar.
+   236→   236→  • 4 `StatCard`s: Overall Progress % (primary), Active Goals (amber),
+   237→   237→    Completed (teal), Due This Week (rose — targetDate within next 7 days &
+   238→   238→    not completed).
+   239→   239→  • Controls row: subject filter Select ("All subjects" + unique subjects) and
+   240→   240→    sort Select ("Target date" default, "Progress", "Priority").
+   241→   241→  • Goal list: `grid grid-cols-1 md:grid-cols-2 gap-4` of `GoalCard`s, or
+   242→   242→    `EmptyState` with an "Add Goal" CTA when none.
+   243→   243→- Store wiring: `addGoal` (auto-sets `completed:true` when progress≥100),
+   244→   244→  `updateGoal` (syncs completed with progress while preserving manual
+   245→   245→  overrides), `setProgress` (live, no debounce), `toggleGoal`, `deleteGoal`.
+   246→   246→- Toasts via sonner: "Goal added", "Goal updated", "Goal deleted",
+   247→   247→  "Goal completed 🎉" (fired when the inline slider reaches 100 or when a goal
+   248→   248→  is toggled complete).
+   249→   249→- Accessibility: aria-labels on every icon button (edit/delete/toggle) and on
+   250→   250→  both Slider instances + both filter Selects; form inputs use Label+htmlFor
+   251→   251→  association; error messages carry `role="alert"`.
+   252→   252→- Emerald design system only (primary = emerald); completed cards dimmed to
+   253→   253→  opacity-70; rose tone reserved for overdue / due-this-week signals.
+   254→   254→
+   255→   255→Stage Summary:
+   256→   256→- File created: `src/components/modules/study/study-view.tsx`.
+   257→   257→- Features: add/edit (dialog form w/ validation), delete (ConfirmDialog),
+   258→   258→  live inline progress Slider with auto-complete at 100%, manual complete
+   259→   259→  toggle, featured overall-progress card, 4 KPI StatCards, subject filter +
+   260→   260→  3-way sort (default target date), empty state, hydration skeleton.
+   261→   261→- Notes: no dev/build/lint run (per instructions). Slider/Progress props
+   262→   262→  verified against the local shadcn sources. `BookOpen` icon was listed as
+   263→   263→  available but unused — omitted to keep imports clean. The component reads
+   264→   264→  `useStudyStore()` directly and takes no props, ready to be dropped into the
+   265→   265→  dashboard / module switcher.
+   266→   266→
+   267→   267→---
+   268→   268→Task ID: 4-b
+   269→   269→Agent: expenses-module-builder
+   270→   270→Task: Build the Expenses module view component.
+   271→   271→
+   272→   272→Work Log:
+   273→   273→- Read the foundation worklog (Task 1) plus all the relevant source files:
+   274→   274→  `src/lib/types.ts`, `src/lib/format.ts`, `src/lib/store.ts`,
+   275→   275→  `src/hooks/use-hydrated.ts`, `src/components/shared/{module-header,
+   276→   276→  stat-card, empty-state, confirm-dialog}.tsx`, and the shadcn primitives
+   277→   277→  `chart.tsx`, `dialog.tsx`, `select.tsx`, `button.tsx`, `card.tsx`,
+   278→   278→  `badge.tsx`, `input.tsx`, `textarea.tsx`, `label.tsx`, `table.tsx`,
+   279→   279→  `separator.tsx`, `skeleton.tsx`. Confirmed exact exported subcomponents and
+   280→   280→  the ChartContainer/ChartTooltip/ChartTooltipContent/ChartConfig API.
+   281→   281→- Created `src/components/modules/expenses/expenses-view.tsx`
+   282→   282→  (single client component, starts with `"use client";`).
+   283→   283→- Implemented a reusable `ExpenseFormDialog` (used for both add & edit):
+   284→   284→  - Amount (number input with ₹ glyph, validated > 0; inline error + disabled
+   285→   285→    submit; toast.error("Enter a valid amount") on invalid submit).
+   286→   286→  - Category Select (default "Food", all 7 EXPENSE_CATEGORIES).
+   287→   287→  - Date `<input type="date">` defaulting to todayISO, capped to today.
+   288→   288→  - Optional description Textarea.
+   289→   289→  - Form state resets on dialog open via useEffect (so prefilled edit data is
+   290→   290→    always fresh). Add path calls addExpense + toast.success("Expense added");
+   291→   291→    edit path calls updateExpense + toast.success("Expense updated").
+   292→   292→- Implemented the main `ExpensesView`:
+   293→   293→  - Hydration guard via `useHydrated()` → renders a Skeleton layout until
+   294→   294→    mounted (also covers the chart, since the chart only mounts post-hydrate).
+   295→   295→  - ModuleHeader (Wallet icon, title "Expenses", description
+   296→   296→    "Track where your money goes", primary "Add Expense" action).
+   297→   297→  - Stat row: `grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4` with 4
+   298→   298→    StatCards: This Month total (primary, sub = month transaction count),
+   299→   299→    All-time total (teal), Transactions count in current filter (violet),
+   300→   300→    Top Category this month (amber, sub = amount). Month label rendered via
+   301→   301→    `monthLabel()`.
+   302→   302→  - Controls bar (stacks on mobile, row on sm+): search input (with search
+   303→   303→    icon, case-insensitive substring match on description), Category Select
+   304→   304→    ("All categories" + 7), Time filter Select ("This Month" default,
+   305→   305→    "This Week", "All Time"), Sort Select (Newest / Oldest / Amount High→Low /
+   306→   306→    Amount Low→High).
+   307→   307→  - Time-filter helpers: `matchesTimeFilter` uses `isSameMonth` for month and
+   308→   308→    a `withinThisWeek` (last 7 calendar days incl. today) for week.
+   309→   309→  - Two-column section (`grid grid-cols-1 lg:grid-cols-2 gap-4`):
+   310→   310→    * Left card = donut chart (recharts PieChart with innerRadius 62 /
+   311→   311→      outerRadius 88) wrapped in shadcn `ChartContainer`. ChartConfig is built
+   312→   312→      dynamically from the categories present in the filtered set; each slice
+   313→   313→      is filled with `EXPENSE_CATEGORY_META[cat].color`. ChartTooltip uses
+   314→   314→      ChartTooltipContent with a custom formatter that renders
+   315→   315→      `<category name> ... <formatINR(value)>`. A centered overlay shows
+   316→   316→      "Total" + formatINRCompact(filteredTotal). Chart is only rendered when
+   317→   317→      filteredTotal > 0 (guarded).
+   318→   318→    * Right card = breakdown list: each row = colored dot (inline-style bg
+   319→   319→      from meta.color) + category name + formatINR(amount) + percentage, plus
+   320→   320→      a thin progress bar tinted with the same color. Sorted desc by amount.
+   321→   321→  - History section: shadcn Table on `sm+` (Date / Category badge with
+   322→   322→    tinted dot / Description (truncated, italic "No description" fallback) /
+   323→   323→    right-aligned formatINR amount / Edit + Delete actions). Falls back to a
+   324→   324→    compact card list on mobile. Sorted per the sortKey.
+   325→   325→  - Delete uses the shared ConfirmDialog → deleteExpense + toast.success(
+   326→   326→    "Expense deleted"). All action buttons have descriptive `aria-label`s.
+   327→   327→  - Empty state (shared EmptyState component) when no expenses match the
+   328→   328→    filter, with an inline "Add Expense" CTA.
+   329→   329→- Strict TS throughout (typed FormState, TimeFilter, SortKey, CategoryFilter;
+   330→   330→  no `any`). ChartConfig is declared via `satisfies ChartConfig`.
+   331→   331→- Did NOT run dev/build/lint (per constraints). Only touched the one module
+   332→   332→  file plus this worklog append.
+   333→   333→
+   334→   334→Stage Summary:
+   335→   335→- File created: `src/components/modules/expenses/expenses-view.tsx`
+   336→   336→  (exports `ExpensesView`, no props, reads `useExpenseStore`).
+   337→   337→- Features implemented: add/edit/delete expense with toasts; category filter
+   338→   338→  (All + 7); time filter (Month default / Week / All Time); description search;
+   339→   339→  4 StatCards (This Month, All-time, Transactions, Top Category); donut chart
+   340→   340→  with center total + INR tooltip + dynamic ChartConfig; sorted breakdown list
+   341→   341→  with colored progress bars; responsive history (table on desktop, card list
+   342→   342→  on mobile); empty state; hydration skeleton; emerald/category-meta colors
+   343→   343→  (no blue/indigo chrome).
+   344→   344→- Notes: The form dialog resets via useEffect on open so edit prefills always
+   345→   345→  reflect the latest expense. Chart and all data-driven UI are gated behind
+   346→   346→  `useHydrated()` so there is no SSR mismatch. Recharts `PieChart`/`Pie`/`Cell`
+   347→   347→  are imported from `"recharts"`; shadcn chart wrappers from
+   348→   348→  `@/components/ui/chart`. The component is ready to be mounted on the
+   349→   349→  dashboard / `/` route by the orchestrator.
+   350→   350→
+   351→   351→---
+   352→   352→Task ID: 5 + 6 + 7
+   353→   353→Agent: main (orchestrator)
+   354→   354→Task: Build the Dashboard view, assemble the responsive app shell, wire the
+   355→   355→page, and perform end-to-end verification with Agent Browser.
+   356→   356→
+   357→   357→Work Log:
+   358→   358→- Built `src/components/modules/dashboard/dashboard-view.tsx`: emerald welcome
+   359→   359→  banner (time-aware greeting using studentName + today's date + quick summary),
+   360→   360→  4 clickable StatCards (Pending tasks / Spent this month / Study progress /
+   361→   361→  Notes saved) that navigate to their modules, "Today's tasks" list with inline
+   362→   362→  complete-toggle checkboxes, "Expense overview" with a recharts horizontal
+   363→   363→  BarChart (per-category colors from EXPENSE_CATEGORY_META) + breakdown list,
+   364→   364→  "Study progress" overall % + Progress bars for top goals, "Recent notes"
+   365→   365→  preview. Gated with useHydrated + a DashboardSkeleton.
+   366→   366→- Built `src/components/layout/app-shell.tsx`: desktop sticky sidebar (brand,
+   367→   367→  nav, EditNameButton dialog for the student name, ThemeToggle), desktop sticky
+   368→   368→  header (breadcrumb + NotificationsPopover), mobile top bar (brand + bell +
+   369→   369→  theme), mobile fixed bottom tab nav (5 tabs), sticky footer. Module switching
+   370→   370→  via a switch (Dashboard gets onNavigate, the 4 CRUD views are prop-less).
+   371→   371→- `src/app/page.tsx` renders `<AppShell />`. `layout.tsx` already wired with
+   372→   372→  ThemeProvider + Sonner toaster + metadata.
+   373→   373→- Dispatched the 4 CRUD modules to parallel subagents (Tasks 4-a, Expenses 4-b,
+   374→   374→  Study 4-c, Notes 4-d) — all delivered and integrated.
+   375→   375→- FIXED hydration mismatch: Radix Popover/Tooltip/Dialog `useId` ids diverged
+   376→   376→  between SSR and client (aria-controls mismatches). Gated the whole AppShell
+   377→   377→  behind `useHydrated()` with a Radix-free `AppShellSkeleton` (plain divs,
+   378→   378→  no useId) so SSR and the hydration render match exactly, then the interactive
+   379→   379→  app mounts. Also rewrote `useHydrated` with `useSyncExternalStore`
+   380→   380→  (lint-clean, no setState-in-effect).
+   381→   381→- Verification with Agent Browser (Playwright Chromium):
+   382→   382→  * Dashboard renders all sections with seed data; greeting, 4 stat cards,
+   383→   383→    today's tasks, expense bar chart, study progress, recent notes.
+   384→   384→  * Tasks: Add task dialog → form validation (submit disabled until title) →
+   385→   385→    task added with toast → toggle complete → verified. Cleared localStorage
+   386→   386→    confirmed `campusflow:tasks` persists "Submit Lab Report", completed:true.
+   387→   387→  * Expenses: Add ₹500 expense → total updated ₹4,500 → ₹5,000 live, new row
+   388→   388→    "Lunch ₹500" + donut chart + breakdown list.
+   389→   389→  * Study: interactive slider moved Java Collections 70→80 via keyboard.
+   390→   390→  * Notes: created "OS Scheduling Algorithms" note → card + toast.
+   391→   391→  * Dark mode: toggled light→dark, reloaded → "dark" persisted (next-themes).
+   392→   392→  * Mobile (390x844): bottom tab nav appears, sidebar hidden, layout adapts;
+   393→   393→    footer_bottom(viewport)=780 vs nav_top=787 → no overlap (sticky footer
+   394→   394→    correct on mobile). Desktop footer pushed to doc bottom on long content.
+   395→   395→  * No console errors / no page errors after the hydration fix. `bun run lint`
+   396→   396→    is clean.
+   397→   397→
+   398→   398→Stage Summary:
+   399→   399→- CampusFlow is complete and browser-verified. All 5 modules functional,
+   400→   400→  cross-module dashboard reads live from the stores, localStorage persistence
+   401→   401→  confirmed, dark mode persisted, responsive (desktop sidebar + mobile bottom
+   402→   402→  nav), sticky footer on both layouts, hydration-clean.
+   403→   403→- Screenshots saved: verify-desktop-light.png, verify-desktop-dark.png,
+   404→   404→  verify-mobile-light.png, verify-mobile-dark.png.
+   405→   405→
+   406→   406→---
+   407→   407→Task ID: P-1
+   408→   408→Agent: main (orchestrator)
+   409→   409→Task: Redesign the entire CampusFlow into a calm, minimal "Pixelscape" — pixel-art
+   410→   410→aesthetic that stays mindful/readable to use.
+   411→   411→
+   412→   412→Work Log:
+   413→   413→- `src/app/globals.css` — full Pixelscape theme:
+   414→   414→  - Fonts mapped: `--font-sans` / `--font-mono` → `var(--font-pixel)` (Pixelify
+   415→   415→    Sans). New `--font-display` → Press Start 2P.
+   416→   416→  - `--radius: 0` everywhere (sm/md/lg/xl all 0).
+   417→   417→  - Two palettes: light "Dawn" (warm parchment canvas, deep ink lines, sage
+   418→   418→    primary, amber/rose/violet/teal accents) and dark "Night" (warm charcoal
+   419→   419→    canvas, cream lines, glowing sage). No blue/indigo chrome.
+   420→   420→  - New pixel tokens: `--pixel-line` (high-contrast outline), `--pixel-shadow`
+   421→   421→    (hard offset shadow color), `--pixel-line-soft`.
+   422→   422→  - Pixel utility classes: `.pixel-border`, `.pixel-shadow`, `.pixel-shadow-sm`,
+   423→   423→    `.pixel-shadow-primary`, `.pixel-inset`, `.pixel-btn` (interactive: shadow
+   424→   424→    collapses on press), `.font-display`, `.pixel-dither` (4px checker), 
+   425→   425→    `.pixel-segments` (HP-bar blocks).
+   426→   426→  - Global `.pixelscape *` rule forces `border-radius:0 !important` (unlayered +
+   427→   427→    important → beats Tailwind rounded-* utilities) so EVERY element is sharp.
+   428→   428→  - Global pixel styling for shadcn slots: card (2px border + 4px block shadow),
+   429→   429→    input/textarea/select-trigger (2px border + 2px shadow), badge (2px border),
+   430→   430→    checkbox (square), progress (segmented fill via repeating gradient), tabs
+   431→   431→    (underline), dialog/alert/popover/sheet content (2px border + 6px shadow) +
+   432→   432→    overlays, buttons (pixel border + block shadow + press animation; ghost/link
+   433→   433→    excluded via `data-variant`), select content/items, slider (square thumb),
+   434→   434→    tooltip, scrollbars, recharts axis text, sonner toasts.
+   435→   435→- `src/components/ui/button.tsx` — added `data-variant={variant ?? "default"}` so
+   436→   436→  the global button CSS can exclude ghost/link from the pixel border/shadow.
+   437→   437→- `src/app/layout.tsx` — loads `Pixelify_Sans` (--font-pixel) + `Press_Start_2P`
+   438→   438→  (--font-press) via next/font; wraps children in `<div className="pixelscape">`.
+   439→   439→  Metadata → "CampusFlow — Pixel Edition".
+   440→   440→- `src/components/layout/pixel-logo.tsx` — NEW. SVG pixel graduation cap
+   441→   441→  (crispEdges, 14×14 grid) in primary + amber tassel.
+   442→   442→- `src/components/theme-toggle.tsx` — pixel-btn block toggle (sun/moon crossfade).
+   443→   443→- `src/components/layout/app-shell.tsx` — pixel chrome: 2px borders everywhere,
+   444→   444→  Brand = pixel cap tile (border + shadow) + Press Start 2P wordmark; nav
+   445→   445→  buttons use border-2 + inset active state (primary fill, pixel-inset shadow);
+   446→   446→  pixel footer with PixelLogo; mobile bottom nav with border-t-2 active marker;
+   447→   447→  pixel skeleton mirrors the layout.
+   448→   448→- `src/components/layout/notifications-popover.tsx` — trigger = pixel-btn with
+   449→   449→  square destructive count badge; reminder icon chips = 2px border squares.
+   450→   450→- Shared components pixelized:
+   451→   451→  - `stat-card.tsx` — hard border (via Card global), square 2px icon chip, big
+   452→   452→    value; new `display` prop renders value in Press Start 2P.
+   453→   453→  - `module-header.tsx` — square icon tile with pixel-shadow-sm.
+   454→   454→  - `empty-state.tsx` — 2px dashed border + blocky icon tile.
+   455→   455→- `src/components/modules/dashboard/dashboard-view.tsx` — Pixelscape hero: dawn
+   456→   456→  gradient (amber→sage→teal) with a pixel sun (square + inner block) + dithered
+   457→   457→  ground strip, hard border + shadow; 4 stat cards with Press Start 2P numbers;
+   458→   458→  "Today's tasks" + "Expenses" pixel cards (square category dots, divide-y-2);
+   459→   459→  "Study progress" card with a 20-segment PixelBar (HP blocks) for overall +
+   460→   460→  per-goal Progress bars; "Recent notes" pixel list. Pixel skeleton.
+   461→   461→
+   462→   462→Stage Summary:
+   463→   463→- Core Pixelscape design system is in place and propagates to ALL module views
+   464→   464→  via the global `.pixelscape *` radius override + per-slot CSS (cards, buttons,
+   465→   465→  inputs, selects, dialogs, popovers, sliders, tooltips, toasts, scrollbars).
+   466→   466→- The 4 CRUD module views (tasks/expenses/study/notes) will inherit sharp
+   467→   467→  corners, pixel fonts, pixel borders/shadows automatically. A focused pixel-
+   468→   468→  polish pass on each (via parallel subagents) follows to swap residual soft
+   469→   469→  shadows/rounded chips for pixel treatments and ensure cohesion.
+   470→   470→

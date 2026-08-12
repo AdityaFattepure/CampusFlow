@@ -6,8 +6,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-pixel);
+  --font-mono: var(--font-pixel);
+  --font-display: var(--font-press);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -37,104 +38,433 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 }
 
+/* =====================================================================
+   PIXELSCAPE — a calm, minimal pixel-landscape theme.
+   Light "Dawn"  ·  Dark "Night"
+   No rounded corners anywhere; hard 2px pixel borders; offset block
+   shadows; readable pixel typography (Pixelify Sans + Press Start 2P).
+   ===================================================================== */
+
 :root {
-  --radius: 0.75rem;
-  /* CampusFlow — emerald "growth / productivity" palette (no indigo/blue chrome) */
-  --background: oklch(0.99 0.005 150);
-  --foreground: oklch(0.18 0.02 160);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 160);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 160);
-  --primary: oklch(0.62 0.16 156);
-  --primary-foreground: oklch(0.99 0.01 150);
-  --secondary: oklch(0.96 0.012 155);
-  --secondary-foreground: oklch(0.25 0.03 160);
-  --muted: oklch(0.965 0.008 155);
-  --muted-foreground: oklch(0.52 0.02 160);
-  --accent: oklch(0.94 0.04 155);
-  --accent-foreground: oklch(0.28 0.05 158);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 155);
-  --input: oklch(0.91 0.01 155);
-  --ring: oklch(0.62 0.16 156);
-  --chart-1: oklch(0.7 0.17 155);   /* emerald */
-  --chart-2: oklch(0.75 0.17 65);   /* amber */
-  --chart-3: oklch(0.65 0.2 15);    /* rose */
-  --chart-4: oklch(0.7 0.12 190);   /* teal */
-  --chart-5: oklch(0.62 0.19 300);  /* violet */
-  --sidebar: oklch(0.985 0.006 155);
-  --sidebar-foreground: oklch(0.2 0.02 160);
-  --sidebar-primary: oklch(0.62 0.16 156);
-  --sidebar-primary-foreground: oklch(0.99 0.01 150);
-  --sidebar-accent: oklch(0.94 0.04 155);
-  --sidebar-accent-foreground: oklch(0.28 0.05 158);
-  --sidebar-border: oklch(0.91 0.01 155);
-  --sidebar-ring: oklch(0.62 0.16 156);
+  --radius: 0;
+
+  /* Dawn — warm parchment canvas, deep ink lines, sage/terrain primary. */
+  --background: oklch(0.965 0.012 85);        /* warm cream */
+  --foreground: oklch(0.22 0.02 60);          /* deep warm ink */
+  --card: oklch(0.985 0.008 85);              /* near-white cream */
+  --card-foreground: oklch(0.22 0.02 60);
+  --popover: oklch(0.985 0.008 85);
+  --popover-foreground: oklch(0.22 0.02 60);
+  --primary: oklch(0.6 0.13 150);            /* sage / terrain green */
+  --primary-foreground: oklch(0.99 0.01 85);
+  --secondary: oklch(0.93 0.012 82);
+  --secondary-foreground: oklch(0.28 0.02 60);
+  --muted: oklch(0.92 0.01 82);
+  --muted-foreground: oklch(0.5 0.018 70);
+  --accent: oklch(0.72 0.14 75);             /* sun amber */
+  --accent-foreground: oklch(0.22 0.02 60);
+  --destructive: oklch(0.62 0.19 25);       /* berry rose */
+  --border: oklch(0.82 0.012 80);            /* soft cream line */
+  --input: oklch(0.88 0.012 82);
+  --ring: oklch(0.6 0.13 150);
+  --chart-1: oklch(0.6 0.13 150);            /* sage */
+  --chart-2: oklch(0.72 0.14 75);            /* amber */
+  --chart-3: oklch(0.62 0.19 25);            /* rose */
+  --chart-4: oklch(0.68 0.1 185);            /* teal */
+  --chart-5: oklch(0.58 0.12 300);           /* violet */
+  --sidebar: oklch(0.955 0.012 84);
+  --sidebar-foreground: oklch(0.22 0.02 60);
+  --sidebar-primary: oklch(0.6 0.13 150);
+  --sidebar-primary-foreground: oklch(0.99 0.01 85);
+  --sidebar-accent: oklch(0.92 0.02 82);
+  --sidebar-accent-foreground: oklch(0.28 0.02 60);
+  --sidebar-border: oklch(0.82 0.012 80);
+  --sidebar-ring: oklch(0.6 0.13 150);
+
+  /* Pixel-specific tokens (high-contrast lines + hard shadows). */
+  --pixel-line: oklch(0.22 0.02 60);          /* ink outline (light mode) */
+  --pixel-shadow: oklch(0.22 0.02 60);
+  --pixel-line-soft: oklch(0.34 0.02 60);
 }
 
 .dark {
-  --background: oklch(0.16 0.012 160);
-  --foreground: oklch(0.97 0.005 150);
-  --card: oklch(0.205 0.015 160);
-  --card-foreground: oklch(0.97 0.005 150);
-  --popover: oklch(0.205 0.015 160);
-  --popover-foreground: oklch(0.97 0.005 150);
-  --primary: oklch(0.7 0.15 156);
-  --primary-foreground: oklch(0.16 0.02 160);
-  --secondary: oklch(0.26 0.02 160);
-  --secondary-foreground: oklch(0.97 0.005 150);
-  --muted: oklch(0.26 0.02 160);
-  --muted-foreground: oklch(0.7 0.02 160);
-  --accent: oklch(0.3 0.04 158);
-  --accent-foreground: oklch(0.95 0.01 150);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.7 0.15 156);
-  --chart-1: oklch(0.7 0.17 155);
-  --chart-2: oklch(0.78 0.16 70);
-  --chart-3: oklch(0.68 0.2 15);
-  --chart-4: oklch(0.72 0.12 190);
-  --chart-5: oklch(0.66 0.19 300);
-  --sidebar: oklch(0.19 0.015 160);
-  --sidebar-foreground: oklch(0.97 0.005 150);
-  --sidebar-primary: oklch(0.7 0.15 156);
-  --sidebar-primary-foreground: oklch(0.16 0.02 160);
-  --sidebar-accent: oklch(0.3 0.04 158);
-  --sidebar-accent-foreground: oklch(0.95 0.01 150);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.7 0.15 156);
+  /* Night — warm charcoal canvas, cream lines, glowing sage. */
+  --background: oklch(0.18 0.012 80);
+  --foreground: oklch(0.93 0.012 85);
+  --card: oklch(0.225 0.012 80);
+  --card-foreground: oklch(0.93 0.012 85);
+  --popover: oklch(0.225 0.012 80);
+  --popover-foreground: oklch(0.93 0.012 85);
+  --primary: oklch(0.74 0.14 152);
+  --primary-foreground: oklch(0.16 0.02 80);
+  --secondary: oklch(0.27 0.012 80);
+  --secondary-foreground: oklch(0.93 0.012 85);
+  --muted: oklch(0.26 0.012 80);
+  --muted-foreground: oklch(0.68 0.012 82);
+  --accent: oklch(0.78 0.14 75);
+  --accent-foreground: oklch(0.16 0.02 80);
+  --destructive: oklch(0.7 0.19 25);
+  --border: oklch(0.32 0.012 80);
+  --input: oklch(0.3 0.012 80);
+  --ring: oklch(0.74 0.14 152);
+  --chart-1: oklch(0.74 0.14 152);
+  --chart-2: oklch(0.78 0.14 75);
+  --chart-3: oklch(0.7 0.19 25);
+  --chart-4: oklch(0.74 0.1 185);
+  --chart-5: oklch(0.7 0.13 300);
+  --sidebar: oklch(0.2 0.012 80);
+  --sidebar-foreground: oklch(0.93 0.012 85);
+  --sidebar-primary: oklch(0.74 0.14 152);
+  --sidebar-primary-foreground: oklch(0.16 0.02 80);
+  --sidebar-accent: oklch(0.27 0.012 80);
+  --sidebar-accent-foreground: oklch(0.93 0.012 85);
+  --sidebar-border: oklch(0.32 0.012 80);
+  --sidebar-ring: oklch(0.74 0.14 152);
+
+  --pixel-line: oklch(0.88 0.012 85);        /* cream outline (dark mode) */
+  --pixel-shadow: oklch(0.06 0.005 80);      /* deep black for depth */
+  --pixel-line-soft: oklch(0.6 0.012 82);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Keep pixel fonts crisp — never smooth them. */
+    -webkit-font-smoothing: antialiased;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-pixel), monospace;
+    /* Pixel fonts read best slightly larger; keep line-height relaxed. */
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: 0.01em;
+    font-feature-settings: "tnum" 1;
+  }
+  /* Headings use the chunky pixel display font only where explicitly opted in
+     via .font-display; default headings stay on the readable pixel body font
+     so dense UI stays mindful. */
+  h1, h2, h3, h4 {
+    letter-spacing: 0.005em;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 35%, transparent);
+    color: var(--foreground);
   }
 }
 
-/* Subtle custom scrollbar for scrollable lists */
+/* ---------------------------------------------------------------------
+   Pixel utility classes (opt-in). Composable with Tailwind.
+   --------------------------------------------------------------------- */
+
+/* 2px hard pixel outline. */
+.pixel-border {
+  border: 2px solid var(--pixel-line);
+}
+.pixel-border-b {
+  border-bottom: 2px solid var(--pixel-line);
+}
+.pixel-border-t {
+  border-top: 2px solid var(--pixel-line);
+}
+.pixel-border-r {
+  border-right: 2px solid var(--pixel-line);
+}
+.pixel-border-l {
+  border-left: 2px solid var(--pixel-line);
+}
+
+/* Hard offset block shadows (no blur). */
+.pixel-shadow {
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+.pixel-shadow-sm {
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+.pixel-shadow-primary {
+  box-shadow: 4px 4px 0 0 var(--primary);
+}
+.pixel-shadow-accent {
+  box-shadow: 4px 4px 0 0 var(--accent);
+}
+.pixel-shadow-none {
+  box-shadow: none;
+}
+
+/* Pressed / inset pixel state. */
+.pixel-inset {
+  box-shadow: inset 2px 2px 0 0 var(--pixel-shadow);
+}
+
+/* Interactive pixel button: hard shadow that collapses on press. */
+.pixel-btn {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  transition: transform 80ms steps(2), box-shadow 80ms steps(2),
+    background-color 120ms, color 120ms;
+}
+.pixel-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+.pixel-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 0 var(--pixel-shadow);
+}
+.pixel-btn:disabled {
+  transform: none;
+  box-shadow: 2px 2px 0 0 var(--pixel-line-soft);
+  opacity: 0.6;
+}
+
+/* Display font helper (Press Start 2P) — use sparingly for brand + hero numbers. */
+.font-display {
+  font-family: var(--font-press), monospace;
+  letter-spacing: 0.02em;
+}
+
+/* Subtle pixel dither texture (4px checker). Used decoratively. */
+.pixel-dither {
+  background-image:
+    linear-gradient(45deg, color-mix(in oklch, var(--foreground) 6%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in oklch, var(--foreground) 6%, transparent) 75%),
+    linear-gradient(45deg, color-mix(in oklch, var(--foreground) 6%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in oklch, var(--foreground) 6%, transparent) 75%);
+  background-size: 4px 4px;
+  background-position: 0 0, 2px 2px;
+}
+.dark .pixel-dither {
+  background-image:
+    linear-gradient(45deg, color-mix(in oklch, var(--foreground) 7%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in oklch, var(--foreground) 7%, transparent) 75%),
+    linear-gradient(45deg, color-mix(in oklch, var(--foreground) 7%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in oklch, var(--foreground) 7%, transparent) 75%);
+}
+
+/* Pixel "HP bar" — a row of block segments. Filled = primary, empty = muted. */
+.pixel-segments {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+}
+.pixel-segments > i {
+  flex: 1;
+  background: var(--muted);
+  border: 1px solid var(--pixel-line);
+}
+.pixel-segments > i.on {
+  background: var(--primary);
+}
+
+/* Pixel scrollbar. */
 .scroll-area-thin > [data-radix-scroll-area-viewport] {
-  scrollbar-width: thin;
+  scrollbar-width: auto;
+  scrollbar-color: var(--pixel-line) transparent;
 }
 .scroll-area-thin > [data-radix-scroll-area-viewport]::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.scroll-area-thin > [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
-  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
-  border-radius: 9999px;
+  width: 10px;
+  height: 10px;
 }
 .scroll-area-thin > [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--muted);
+  border-left: 2px solid var(--pixel-line);
+}
+.scroll-area-thin > [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+  background: var(--pixel-line);
+  border: 2px solid var(--muted);
+}
+.scroll-area-thin > [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* ---------------------------------------------------------------------
+   Global Pixelscape overrides.
+   Force sharp corners everywhere (pixel art has no radii). Unlayered +
+   important so it reliably beats Tailwind rounded-* utilities used by
+   shadcn components and the module views.
+   --------------------------------------------------------------------- */
+.pixelscape,
+.pixelscape * {
+  border-radius: 0 !important;
+}
+
+/* Make native form controls pixel-crisp. */
+.pixelscape input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: var(--pixel-icon-filter, none);
+  cursor: pointer;
+}
+
+/* Pixel-styled shadcn Card: hard border, no soft shadow, crisp. */
+.pixelscape [data-slot="card"] {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+  background: var(--card);
+}
+
+/* Inputs / textareas / selects: pixel border. */
+.pixelscape [data-slot="input"],
+.pixelscape [data-slot="textarea"],
+.pixelscape input[type="text"],
+.pixelscape input[type="number"],
+.pixelscape input[type="date"],
+.pixelscape input[type="search"],
+.pixelscape input[type="email"],
+.pixelscape textarea,
+.pixelscape [data-slot="select-trigger"] {
+  border: 2px solid var(--pixel-line);
+  background: var(--background);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+}
+.pixelscape [data-slot="input"]:focus-visible,
+.pixelscape [data-slot="textarea"]:focus-visible,
+.pixelscape [data-slot="select-trigger"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Badges: hard border, square. */
+.pixelscape [data-slot="badge"] {
+  border-width: 2px;
+}
+
+/* Checkbox: keep square; the radix indicator fills it. */
+.pixelscape [data-slot="checkbox"] {
+  border: 2px solid var(--pixel-line);
+  border-radius: 0 !important;
+}
+
+/* Progress: hard track, crisp fill, no rounding. */
+.pixelscape [data-slot="progress"] {
+  border: 2px solid var(--pixel-line);
+  background: var(--muted);
+  height: 14px;
+}
+.pixelscape [data-slot="progress-indicator"] {
+  background: var(--primary);
+  background-image: repeating-linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--primary) 100%, transparent) 0 8px,
+    color-mix(in oklch, var(--primary-foreground) 22%, transparent) 8px 10px
+  );
+}
+
+/* Tabs trigger: crisp underline. */
+.pixelscape [data-slot="tabs-trigger"][data-state="active"] {
+  box-shadow: inset 0 -2px 0 0 var(--primary);
+}
+
+/* Dialogs / alerts / popovers / sheets: pixel border + hard shadow. */
+.pixelscape [data-slot="dialog-content"],
+.pixelscape [data-slot="alert-dialog-content"],
+.pixelscape [data-slot="popover-content"],
+.pixelscape [data-slot="sheet-content"] {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 6px 6px 0 0 var(--pixel-shadow);
+  background: var(--card);
+}
+.pixelscape [data-slot="dialog-overlay"],
+.pixelscape [data-slot="alert-dialog-overlay"],
+.pixelscape [data-slot="sheet-overlay"] {
+  background: color-mix(in oklch, var(--pixel-line) 55%, transparent);
+  backdrop-filter: none;
+}
+
+/* Buttons: default shadcn buttons get a pixel border + block shadow. */
+.pixelscape [data-slot="button"]:not([data-variant="ghost"]):not([data-variant="link"]) {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  transition: transform 80ms steps(2), box-shadow 80ms steps(2),
+    background-color 120ms, color 120ms;
+}
+.pixelscape [data-slot="button"]:not([data-variant="ghost"]):not([data-variant="link"]):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+.pixelscape [data-slot="button"]:not([data-variant="ghost"]):not([data-variant="link"]):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 var(--pixel-shadow);
+}
+.pixelscape [data-slot="button"]:disabled {
+  transform: none;
+  box-shadow: 2px 2px 0 0 var(--pixel-line-soft);
+  opacity: 0.55;
+}
+
+/* Select content (dropdown) — pixel border. */
+.pixelscape [data-slot="select-content"] {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow);
+}
+.pixelscape [data-slot="select-item"][data-highlighted] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Slider: pixel track + square thumb. */
+.pixelscape [data-slot="slider-track"] {
+  border: 2px solid var(--pixel-line);
+  background: var(--muted);
+  height: 14px !important;
+}
+.pixelscape [data-slot="slider-range"] {
+  background: var(--primary);
+}
+.pixelscape [data-slot="slider-thumb"] {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--pixel-line);
+  background: var(--card);
+  box-shadow: 2px 2px 0 0 var(--pixel-shadow);
+  border-radius: 0 !important;
+}
+.pixelscape [data-slot="slider-thumb"]:hover {
+  background: var(--primary);
+}
+
+/* Tooltip: pixel border + hard shadow. */
+.pixelscape [data-slot="tooltip-content"] {
+  border: 2px solid var(--pixel-line);
+  box-shadow: 3px 3px 0 0 var(--pixel-shadow);
+  background: var(--card);
+  border-radius: 0 !important;
+}
+
+/* ScrollArea viewport already handled via .scroll-area-thin; ensure scrollbar
+   on generic scroll-areas reads pixel too. */
+.pixelscape [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.pixelscape [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+.pixelscape [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+  background: var(--pixel-line);
+  border: 2px solid var(--muted);
+}
+
+/* ---------------------------------------------------------------------
+   Sonner toasts — pixel-styled.
+   --------------------------------------------------------------------- */
+.pixelscape [data-sonner-toaster] [data-sonner-toast] {
+  border: 2px solid var(--pixel-line) !important;
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0 0 var(--pixel-shadow) !important;
+  font-family: var(--font-pixel), monospace;
+}
+.pixelscape [data-sonner-toaster] [data-sonner-toast][data-type="success"] {
+  border-color: var(--primary) !important;
+}
+.pixelscape [data-sonner-toaster] [data-sonner-toast][data-type="error"] {
+  border-color: var(--destructive) !important;
+}
+
+/* Recharts tooltip already styled via ChartTooltipContent; keep crisp. */
+.pixelscape .recharts-cartesian-axis-tick text {
+  font-family: var(--font-pixel), monospace;
+  font-size: 11px;
 }

@@ -312,13 +312,13 @@ function GoalCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-semibold">{goal.subject}</h3>
+            <h3 className="truncate font-bold">{goal.subject}</h3>
             <Badge
               variant="outline"
               className={`gap-1 ${priorityStyle.className}`}
             >
               <span
-                className={`size-1.5 rounded-full ${priorityStyle.dot}`}
+                className={`h-2 w-2 ${priorityStyle.dot}`}
                 aria-hidden="true"
               />
               {priorityStyle.label}
@@ -335,6 +335,7 @@ function GoalCard({
             size="icon"
             onClick={onEdit}
             aria-label={`Edit goal ${ariaLabel}`}
+            className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
           >
             <Pencil className="size-4" />
           </Button>
@@ -344,6 +345,7 @@ function GoalCard({
                 variant="ghost"
                 size="icon"
                 aria-label={`Delete goal ${ariaLabel}`}
+                className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -405,7 +407,7 @@ function GoalCard({
             variant="outline"
             className={
               overdue
-                ? "border-rose-500/25 bg-rose-500/12 text-rose-600 dark:text-rose-300"
+                ? "border-rose-500/25 bg-rose-500/12 font-bold text-rose-600 dark:text-rose-300"
                 : "border-border bg-muted text-muted-foreground"
             }
           >
@@ -445,20 +447,20 @@ function StudySkeleton() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-11 w-11 animate-pulse rounded-xl bg-muted" />
+          <div className="h-11 w-11 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
           <div className="space-y-2">
-            <div className="h-5 w-40 animate-pulse rounded bg-muted" />
-            <div className="h-3 w-56 animate-pulse rounded bg-muted" />
+            <div className="h-5 w-40 animate-pulse bg-muted" />
+            <div className="h-3 w-56 animate-pulse bg-muted" />
           </div>
         </div>
-        <div className="h-9 w-28 animate-pulse rounded-md bg-muted" />
+        <div className="h-9 w-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
       </div>
-      <div className="h-28 animate-pulse rounded-xl border bg-card" />
+      <div className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow-sm" />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-28 animate-pulse rounded-xl border bg-card"
+            className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow-sm"
           />
         ))}
       </div>
@@ -466,7 +468,7 @@ function StudySkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-52 animate-pulse rounded-xl border bg-card"
+            className="h-52 animate-pulse border-2 border-[var(--pixel-line)] bg-card pixel-shadow"
           />
         ))}
       </div>
@@ -596,8 +598,8 @@ export function StudyView() {
             <p className="text-sm font-medium text-muted-foreground">
               Overall Study Progress
             </p>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-4xl font-semibold tracking-tight tabular-nums">
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="font-display text-3xl text-primary">
                 {overall}%
               </span>
               <span className="text-sm text-muted-foreground">
@@ -606,14 +608,20 @@ export function StudyView() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-start rounded-full bg-primary/12 px-3 py-1.5 text-primary sm:self-auto">
+          <div className="flex items-center gap-2 self-start border-2 border-[var(--pixel-line)] bg-primary/15 px-3 py-1.5 text-primary pixel-shadow-sm sm:self-auto">
             <TrendingUp className="size-4" aria-hidden="true" />
-            <span className="text-xs font-medium">
+            <span className="text-xs font-bold">
               {completedCount}/{goals.length} done
             </span>
           </div>
         </div>
         <Progress value={overall} className="mt-4 h-2.5" />
+        {/* Pixel HP-bar: 20 segments, lit by overall %. */}
+        <div className="pixel-segments mt-3" aria-hidden>
+          {Array.from({ length: 20 }).map((_, i) => (
+            <i key={i} className={i < Math.round(overall / 5) ? "on" : ""} />
+          ))}
+        </div>
       </Card>
 
       {/* Stats row */}
@@ -624,6 +632,7 @@ export function StudyView() {
           value={`${overall}%`}
           tone="primary"
           sub="avg across goals"
+          display
         />
         <StatCard
           icon={<Target className="size-4" />}
@@ -631,6 +640,7 @@ export function StudyView() {
           value={activeCount}
           tone="amber"
           sub="in progress"
+          display
         />
         <StatCard
           icon={<CheckCircle2 className="size-4" />}
@@ -638,6 +648,7 @@ export function StudyView() {
           value={completedCount}
           tone="teal"
           sub="done"
+          display
         />
         <StatCard
           icon={<Flame className="size-4" />}
@@ -645,6 +656,7 @@ export function StudyView() {
           value={dueThisWeek}
           tone="rose"
           sub="next 7 days"
+          display
         />
       </div>
 

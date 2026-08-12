@@ -341,13 +341,13 @@ function TasksSkeleton() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-11 w-11 rounded-xl" />
+          <Skeleton className="h-11 w-11 border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
           <div className="space-y-2">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-3 w-44" />
           </div>
         </div>
-        <Skeleton className="h-9 w-28 rounded-md" />
+        <Skeleton className="h-9 w-28 border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -355,7 +355,7 @@ function TasksSkeleton() {
           <Card key={i} className="gap-0 p-5 py-5">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-9 w-9 rounded-lg" />
+              <Skeleton className="h-9 w-9 border-2 border-[var(--pixel-line)]" />
             </div>
             <Skeleton className="mt-3 h-8 w-20" />
             <Skeleton className="mt-1 h-3 w-24" />
@@ -366,27 +366,27 @@ function TasksSkeleton() {
       <Card className="gap-0 p-3 sm:p-4 py-3 sm:py-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-9 w-full rounded-md" />
+            <Skeleton key={i} className="h-9 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
           ))}
         </div>
       </Card>
 
-      <Card className="gap-0 py-0 divide-y">
+      <Card className="gap-0 py-0 divide-y-2 divide-[var(--pixel-line)]/40">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-start gap-3 p-4">
-            <Skeleton className="mt-1 size-4 rounded" />
+            <Skeleton className="mt-1 size-4 border-2 border-[var(--pixel-line)]" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-3 w-3/4" />
               <div className="flex gap-2">
-                <Skeleton className="h-5 w-16 rounded-md" />
-                <Skeleton className="h-5 w-20 rounded-md" />
-                <Skeleton className="h-5 w-24 rounded-md" />
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-5 w-24" />
               </div>
             </div>
             <div className="flex gap-1">
-              <Skeleton className="h-8 w-8 rounded-md" />
-              <Skeleton className="h-8 w-8 rounded-md" />
+              <Skeleton className="h-8 w-8 border-2 border-[var(--pixel-line)]" />
+              <Skeleton className="h-8 w-8 border-2 border-[var(--pixel-line)]" />
             </div>
           </div>
         ))}
@@ -557,6 +557,7 @@ export function TasksView() {
           value={total}
           sub={`${pendingCount} pending · ${completedCount} done`}
           tone="primary"
+          display
         />
         <StatCard
           icon={<Clock className="h-4 w-4" />}
@@ -564,6 +565,7 @@ export function TasksView() {
           value={pendingCount}
           sub={`${dueTodayCount} due today`}
           tone="amber"
+          display
         />
         <StatCard
           icon={<CheckCircle className="h-4 w-4" />}
@@ -575,6 +577,7 @@ export function TasksView() {
               : `${Math.round((completedCount / total) * 100)}%`
           }
           tone="teal"
+          display
         />
         <StatCard
           icon={<AlertTriangle className="h-4 w-4" />}
@@ -582,6 +585,7 @@ export function TasksView() {
           value={overdueCount}
           sub={overdueCount === 0 ? "All good" : "Needs attention"}
           tone="rose"
+          display
         />
       </div>
 
@@ -602,7 +606,7 @@ export function TasksView() {
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 border-2 border-transparent p-1 text-muted-foreground hover:border-[var(--pixel-line)] hover:bg-muted hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="size-3.5" />
@@ -718,7 +722,7 @@ export function TasksView() {
         />
       ) : (
         <Card className="gap-0 py-0">
-          <ul className="divide-y">
+          <ul className="divide-y-2 divide-[var(--pixel-line)]/40">
             {filtered.map((task) => {
               const overdue = isOverdue(task);
               const dueToday = !task.completed && isDueToday(task);
@@ -761,7 +765,7 @@ export function TasksView() {
                       )}
                       <p
                         className={cn(
-                          "text-sm font-medium leading-snug",
+                          "text-sm font-bold leading-snug",
                           task.completed &&
                             "line-through text-muted-foreground"
                         )}
@@ -793,7 +797,7 @@ export function TasksView() {
                         className={cn("font-medium", prio.className)}
                       >
                         <span
-                          className={cn("size-1.5 rounded-full", prio.dot)}
+                          className={cn("h-2 w-2", prio.dot)}
                         />
                         {prio.label}
                       </Badge>
@@ -822,7 +826,7 @@ export function TasksView() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
                       onClick={() => openEdit(task)}
                       aria-label={`Edit task "${task.title}"`}
                     >
@@ -833,7 +837,7 @@ export function TasksView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 border-2 border-transparent text-muted-foreground hover:border-[var(--pixel-line)] hover:bg-muted hover:text-destructive"
                           aria-label={`Delete task "${task.title}"`}
                         >
                           <Trash2 className="size-4" />

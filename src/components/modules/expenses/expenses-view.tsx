@@ -309,18 +309,21 @@ function ExpenseFormDialog({
 function ExpensesSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-14 w-full rounded-xl" />
+      <Skeleton className="h-14 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 w-full rounded-xl" />
+          <Skeleton
+            key={i}
+            className="h-28 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm"
+          />
         ))}
       </div>
-      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Skeleton className="h-72 w-full rounded-xl" />
-        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
+        <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
       </div>
-      <Skeleton className="h-72 w-full rounded-xl" />
+      <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
     </div>
   );
 }
@@ -432,6 +435,7 @@ export function ExpensesView() {
             monthExpenses.length === 1 ? "" : "s"
           }`}
           tone="primary"
+          display
         />
         <StatCard
           icon={<IndianRupee className="h-4 w-4" />}
@@ -441,6 +445,7 @@ export function ExpensesView() {
             expenses.length === 1 ? "" : "s"
           }`}
           tone="teal"
+          display
         />
         <StatCard
           icon={<Receipt className="h-4 w-4" />}
@@ -454,6 +459,7 @@ export function ExpensesView() {
               : "This week view"
           }
           tone="violet"
+          display
         />
         <StatCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -562,6 +568,7 @@ export function ExpensesView() {
                           innerRadius={62}
                           outerRadius={88}
                           paddingAngle={2}
+                          cornerRadius={0}
                           strokeWidth={0}
                         >
                           {chartData.map((d) => (
@@ -592,7 +599,7 @@ export function ExpensesView() {
                       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                         Total
                       </span>
-                      <span className="text-lg font-semibold tabular-nums">
+                      <span className="font-display text-base leading-none tabular-nums">
                         {formatINRCompact(filteredTotal)}
                       </span>
                     </div>
@@ -626,7 +633,7 @@ export function ExpensesView() {
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <div className="flex min-w-0 items-center gap-2">
                             <span
-                              className="inline-block size-2.5 shrink-0 rounded-full"
+                              className="inline-block h-3 w-3 shrink-0 border-2 border-[var(--pixel-line)]"
                               style={{ backgroundColor: meta.color }}
                               aria-hidden
                             />
@@ -641,9 +648,9 @@ export function ExpensesView() {
                             </span>
                           </div>
                         </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div className="h-2.5 w-full border-2 border-[var(--pixel-line)] bg-muted">
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full transition-all"
                             style={{
                               width: `${pct}%`,
                               backgroundColor: meta.color,
@@ -673,7 +680,7 @@ export function ExpensesView() {
             <CardContent className="px-0 sm:px-6">
               {/* Desktop: table */}
               <div className="hidden sm:block">
-                <Table>
+                <Table className="[&_td]:border-2 [&_td]:border-[var(--pixel-line)]/30 [&_th]:border-2 [&_th]:border-[var(--pixel-line)]/30">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="pl-6">Date</TableHead>
@@ -694,7 +701,7 @@ export function ExpensesView() {
                           <TableCell>
                             <Badge variant="secondary" className="gap-1.5">
                               <span
-                                className="inline-block size-2 rounded-full"
+                                className="inline-block size-2 border-2 border-[var(--pixel-line)]"
                                 style={{ backgroundColor: meta.color }}
                                 aria-hidden
                               />
@@ -710,7 +717,7 @@ export function ExpensesView() {
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">
+                          <TableCell className="text-right font-bold tabular-nums">
                             {formatINR(e.amount)}
                           </TableCell>
                           <TableCell className="pr-6">
@@ -720,6 +727,7 @@ export function ExpensesView() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
                                     aria-label={`Edit ${e.category} expense of ${formatINR(
                                       e.amount
                                     )}`}
@@ -741,6 +749,7 @@ export function ExpensesView() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
                                     aria-label={`Delete ${e.category} expense of ${formatINR(
                                       e.amount
                                     )}`}
@@ -774,10 +783,10 @@ export function ExpensesView() {
                   return (
                     <li
                       key={e.id}
-                      className="flex items-start gap-3 rounded-lg border p-3"
+                      className="flex items-start gap-3 border-2 border-[var(--pixel-line)] p-3"
                     >
                       <span
-                        className="mt-1.5 inline-block size-2.5 shrink-0 rounded-full"
+                        className="mt-1.5 inline-block h-3 w-3 shrink-0 border-2 border-[var(--pixel-line)]"
                         style={{ backgroundColor: meta.color }}
                         aria-hidden
                       />
@@ -786,7 +795,7 @@ export function ExpensesView() {
                           <span className="text-sm font-medium">
                             {e.category}
                           </span>
-                          <span className="text-sm font-semibold tabular-nums">
+                          <span className="text-sm font-bold tabular-nums">
                             {formatINR(e.amount)}
                           </span>
                         </div>
@@ -803,7 +812,7 @@ export function ExpensesView() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="size-8"
+                              className="size-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
                               aria-label={`Edit ${e.category} expense`}
                             >
                               <Pencil />
@@ -823,7 +832,7 @@ export function ExpensesView() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="size-8"
+                              className="size-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
                               aria-label={`Delete ${e.category} expense`}
                             >
                               <Trash2 />

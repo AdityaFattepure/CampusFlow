@@ -1,0 +1,869 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import * as React from "react";
+     4→     4→import {
+     5→     5→  ListTodo,
+     6→     6→  Plus,
+     7→     7→  Search,
+     8→     8→  Pencil,
+     9→     9→  Trash2,
+    10→    10→  CalendarDays,
+    11→    11→  CheckCircle2,
+    12→    12→  Circle,
+    13→    13→  Filter,
+    14→    14→  X,
+    15→    15→  Eraser,
+    16→    16→  ClipboardList,
+    17→    17→  CheckCircle,
+    18→    18→  Clock,
+    19→    19→  AlertTriangle,
+    20→    20→} from "lucide-react";
+    21→    21→import { toast } from "sonner";
+    22→    22→
+    23→    23→import { useTaskStore } from "@/lib/store";
+    24→    24→import type { Task, TaskCategory, Priority, TaskInput } from "@/lib/types";
+    25→    25→import { TASK_CATEGORIES } from "@/lib/types";
+    26→    26→import {
+    27→    27→  formatDate,
+    28→    28→  relativeDay,
+    29→    29→  todayISO,
+    30→    30→  PRIORITY_STYLES,
+    31→    31→  TASK_CATEGORY_STYLES,
+    32→    32→} from "@/lib/format";
+    33→    33→import { useHydrated } from "@/hooks/use-hydrated";
+    34→    34→import { cn } from "@/lib/utils";
+    35→    35→
+    36→    36→import { ModuleHeader } from "@/components/shared/module-header";
+    37→    37→import { StatCard } from "@/components/shared/stat-card";
+    38→    38→import { EmptyState } from "@/components/shared/empty-state";
+    39→    39→import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+    40→    40→
+    41→    41→import { Button } from "@/components/ui/button";
+    42→    42→import { Card } from "@/components/ui/card";
+    43→    43→import { Badge } from "@/components/ui/badge";
+    44→    44→import { Input } from "@/components/ui/input";
+    45→    45→import { Textarea } from "@/components/ui/textarea";
+    46→    46→import { Label } from "@/components/ui/label";
+    47→    47→import { Checkbox } from "@/components/ui/checkbox";
+    48→    48→import {
+    49→    49→  Dialog,
+    50→    50→  DialogContent,
+    51→    51→  DialogDescription,
+    52→    52→  DialogFooter,
+    53→    53→  DialogHeader,
+    54→    54→  DialogTitle,
+    55→    55→} from "@/components/ui/dialog";
+    56→    56→import {
+    57→    57→  Select,
+    58→    58→  SelectContent,
+    59→    59→  SelectItem,
+    60→    60→  SelectTrigger,
+    61→    61→  SelectValue,
+    62→    62→} from "@/components/ui/select";
+    63→    63→import { Skeleton } from "@/components/ui/skeleton";
+    64→    64→
+    65→    65→// --------------------------- constants ----------------------------------
+    66→    66→
+    67→    67→const PRIORITIES: Priority[] = ["Low", "Medium", "High"];
+    68→    68→
+    69→    69→/** Higher number = higher priority (for high→low sort). */
+    70→    70→const PRIORITY_RANK: Record<Priority, number> = {
+    71→    71→  High: 3,
+    72→    72→  Medium: 2,
+    73→    73→  Low: 1,
+    74→    74→};
+    75→    75→
+    76→    76→type SortKey = "due-asc" | "due-desc" | "priority-desc" | "recent";
+    77→    77→
+    78→    78→const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    79→    79→  { value: "due-asc", label: "Due date (earliest)" },
+    80→    80→  { value: "due-desc", label: "Due date (latest)" },
+    81→    81→  { value: "priority-desc", label: "Priority (high→low)" },
+    82→    82→  { value: "recent", label: "Recently added" },
+    83→    83→];
+    84→    84→
+    85→    85→// --------------------------- helpers ------------------------------------
+    86→    86→
+    87→    87→function isOverdue(task: Task): boolean {
+    88→    88→  if (task.completed) return false;
+    89→    89→  return task.dueDate < todayISO();
+    90→    90→}
+    91→    91→
+    92→    92→function isDueToday(task: Task): boolean {
+    93→    93→  return task.dueDate === todayISO();
+    94→    94→}
+    95→    95→
+    96→    96→interface FormState {
+    97→    97→  title: string;
+    98→    98→  description: string;
+    99→    99→  category: TaskCategory;
+   100→   100→  priority: Priority;
+   101→   101→  dueDate: string;
+   102→   102→}
+   103→   103→
+   104→   104→const emptyFormState: FormState = {
+   105→   105→  title: "",
+   106→   106→  description: "",
+   107→   107→  category: "Academics",
+   108→   108→  priority: "Medium",
+   109→   109→  dueDate: todayISO(),
+   110→   110→};
+   111→   111→
+   112→   112→function formStateFromTask(task: Task): FormState {
+   113→   113→  return {
+   114→   114→    title: task.title,
+   115→   115→    description: task.description,
+   116→   116→    category: task.category,
+   117→   117→    priority: task.priority,
+   118→   118→    dueDate: task.dueDate,
+   119→   119→  };
+   120→   120→}
+   121→   121→
+   122→   122→function formStateToInput(state: FormState): TaskInput {
+   123→   123→  return {
+   124→   124→    title: state.title.trim(),
+   125→   125→    description: state.description.trim(),
+   126→   126→    category: state.category,
+   127→   127→    priority: state.priority,
+   128→   128→    dueDate: state.dueDate,
+   129→   129→  };
+   130→   130→}
+   131→   131→
+   132→   132→// --------------------------- small Field wrapper -----------------------
+   133→   133→
+   134→   134→function Field({
+   135→   135→  label,
+   136→   136→  htmlFor,
+   137→   137→  required,
+   138→   138→  hint,
+   139→   139→  error,
+   140→   140→  children,
+   141→   141→}: {
+   142→   142→  label: string;
+   143→   143→  htmlFor: string;
+   144→   144→  required?: boolean;
+   145→   145→  hint?: string;
+   146→   146→  error?: string;
+   147→   147→  children: React.ReactNode;
+   148→   148→}) {
+   149→   149→  return (
+   150→   150→    <div className="grid gap-1.5">
+   151→   151→      <Label htmlFor={htmlFor} className="text-xs font-medium">
+   152→   152→        {label}
+   153→   153→        {required ? (
+   154→   154→          <span className="ml-0.5 text-destructive">*</span>
+   155→   155→        ) : null}
+   156→   156→      </Label>
+   157→   157→      {children}
+   158→   158→      {hint && !error ? (
+   159→   159→        <p className="text-xs text-muted-foreground">{hint}</p>
+   160→   160→      ) : null}
+   161→   161→      {error ? (
+   162→   162→        <p className="text-xs text-destructive" role="alert">
+   163→   163→          {error}
+   164→   164→        </p>
+   165→   165→      ) : null}
+   166→   166→    </div>
+   167→   167→  );
+   168→   168→}
+   169→   169→
+   170→   170→// --------------------------- task form dialog ---------------------------
+   171→   171→
+   172→   172→function TaskFormDialog({
+   173→   173→  open,
+   174→   174→  onOpenChange,
+   175→   175→  mode,
+   176→   176→  task,
+   177→   177→  onSubmit,
+   178→   178→}: {
+   179→   179→  open: boolean;
+   180→   180→  onOpenChange: (open: boolean) => void;
+   181→   181→  mode: "add" | "edit";
+   182→   182→  task?: Task;
+   183→   183→  onSubmit: (state: FormState) => void;
+   184→   184→}) {
+   185→   185→  const [state, setState] = React.useState<FormState>(emptyFormState);
+   186→   186→  const [error, setError] = React.useState<string | undefined>(undefined);
+   187→   187→
+   188→   188→  // (Re)seed the form whenever the dialog opens.
+   189→   189→  React.useEffect(() => {
+   190→   190→    if (open) {
+   191→   191→      setState(task ? formStateFromTask(task) : emptyFormState);
+   192→   192→      setError(undefined);
+   193→   193→    }
+   194→   194→  }, [open, task]);
+   195→   195→
+   196→   196→  const titleInvalid = state.title.trim().length === 0;
+   197→   197→
+   198→   198→  function handleSubmit(e: React.FormEvent) {
+   199→   199→    e.preventDefault();
+   200→   200→    if (titleInvalid) {
+   201→   201→      setError("Title is required");
+   202→   202→      return;
+   203→   203→    }
+   204→   204→    setError(undefined);
+   205→   205→    onSubmit(state);
+   206→   206→  }
+   207→   207→
+   208→   208→  return (
+   209→   209→    <Dialog open={open} onOpenChange={onOpenChange}>
+   210→   210→      <DialogContent className="sm:max-w-lg">
+   211→   211→        <DialogHeader>
+   212→   212→          <DialogTitle>
+   213→   213→            {mode === "add" ? "Add task" : "Edit task"}
+   214→   214→          </DialogTitle>
+   215→   215→          <DialogDescription>
+   216→   216→            {mode === "add"
+   217→   217→              ? "Capture an assignment or to-do so you don't forget it."
+   218→   218→              : "Update the details of this task."}
+   219→   219→          </DialogDescription>
+   220→   220→        </DialogHeader>
+   221→   221→
+   222→   222→        <form onSubmit={handleSubmit} className="grid gap-4">
+   223→   223→          <Field
+   224→   224→            label="Title"
+   225→   225→            htmlFor="task-title"
+   226→   226→            required
+   227→   227→            error={error}
+   228→   228→          >
+   229→   229→            <Input
+   230→   230→              id="task-title"
+   231→   231→              value={state.title}
+   232→   232→              onChange={(e) => {
+   233→   233→                setState((s) => ({ ...s, title: e.target.value }));
+   234→   234→                if (error) setError(undefined);
+   235→   235→              }}
+   236→   236→              placeholder="e.g. Submit Java assignment"
+   237→   237→              autoFocus
+   238→   238→              aria-invalid={!!error}
+   239→   239→              maxLength={120}
+   240→   240→            />
+   241→   241→          </Field>
+   242→   242→
+   243→   243→          <Field label="Description" htmlFor="task-desc">
+   244→   244→            <Textarea
+   245→   245→              id="task-desc"
+   246→   246→              value={state.description}
+   247→   247→              onChange={(e) =>
+   248→   248→                setState((s) => ({ ...s, description: e.target.value }))
+   249→   249→              }
+   250→   250→              placeholder="Optional notes (what, where, link…)"
+   251→   251→              rows={3}
+   252→   252→              maxLength={500}
+   253→   253→            />
+   254→   254→          </Field>
+   255→   255→
+   256→   256→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   257→   257→            <Field label="Category" htmlFor="task-category">
+   258→   258→              <Select
+   259→   259→                value={state.category}
+   260→   260→                onValueChange={(v) =>
+   261→   261→                  setState((s) => ({ ...s, category: v as TaskCategory }))
+   262→   262→                }
+   263→   263→              >
+   264→   264→                <SelectTrigger id="task-category" className="w-full">
+   265→   265→                  <SelectValue placeholder="Select category" />
+   266→   266→                </SelectTrigger>
+   267→   267→                <SelectContent>
+   268→   268→                  {TASK_CATEGORIES.map((c) => (
+   269→   269→                    <SelectItem key={c} value={c}>
+   270→   270→                      {c}
+   271→   271→                    </SelectItem>
+   272→   272→                  ))}
+   273→   273→                </SelectContent>
+   274→   274→              </Select>
+   275→   275→            </Field>
+   276→   276→
+   277→   277→            <Field label="Priority" htmlFor="task-priority">
+   278→   278→              <Select
+   279→   279→                value={state.priority}
+   280→   280→                onValueChange={(v) =>
+   281→   281→                  setState((s) => ({ ...s, priority: v as Priority }))
+   282→   282→                }
+   283→   283→              >
+   284→   284→                <SelectTrigger id="task-priority" className="w-full">
+   285→   285→                  <SelectValue placeholder="Select priority" />
+   286→   286→                </SelectTrigger>
+   287→   287→                <SelectContent>
+   288→   288→                  {PRIORITIES.map((p) => (
+   289→   289→                    <SelectItem key={p} value={p}>
+   290→   290→                      {p}
+   291→   291→                    </SelectItem>
+   292→   292→                  ))}
+   293→   293→                </SelectContent>
+   294→   294→              </Select>
+   295→   295→            </Field>
+   296→   296→          </div>
+   297→   297→
+   298→   298→          <Field label="Due date" htmlFor="task-due">
+   299→   299→            <Input
+   300→   300→              id="task-due"
+   301→   301→              type="date"
+   302→   302→              value={state.dueDate}
+   303→   303→              onChange={(e) =>
+   304→   304→                setState((s) => ({
+   305→   305→                  ...s,
+   306→   306→                  dueDate: e.target.value || todayISO(),
+   307→   307→                }))
+   308→   308→              }
+   309→   309→            />
+   310→   310→          </Field>
+   311→   311→
+   312→   312→          <DialogFooter>
+   313→   313→            <Button
+   314→   314→              type="button"
+   315→   315→              variant="ghost"
+   316→   316→              onClick={() => onOpenChange(false)}
+   317→   317→            >
+   318→   318→              Cancel
+   319→   319→            </Button>
+   320→   320→            <Button type="submit" disabled={titleInvalid}>
+   321→   321→              {mode === "add" ? (
+   322→   322→                <>
+   323→   323→                  <Plus className="size-4" />
+   324→   324→                  Add task
+   325→   325→                </>
+   326→   326→              ) : (
+   327→   327→                "Save changes"
+   328→   328→              )}
+   329→   329→            </Button>
+   330→   330→          </DialogFooter>
+   331→   331→        </form>
+   332→   332→      </DialogContent>
+   333→   333→    </Dialog>
+   334→   334→  );
+   335→   335→}
+   336→   336→
+   337→   337→// --------------------------- skeleton -----------------------------------
+   338→   338→
+   339→   339→function TasksSkeleton() {
+   340→   340→  return (
+   341→   341→    <div className="space-y-6">
+   342→   342→      <div className="flex items-center justify-between gap-4">
+   343→   343→        <div className="flex items-center gap-3">
+   344→   344→          <Skeleton className="h-11 w-11 rounded-xl" />
+   345→   345→          <div className="space-y-2">
+   346→   346→            <Skeleton className="h-5 w-32" />
+   347→   347→            <Skeleton className="h-3 w-44" />
+   348→   348→          </div>
+   349→   349→        </div>
+   350→   350→        <Skeleton className="h-9 w-28 rounded-md" />
+   351→   351→      </div>
+   352→   352→
+   353→   353→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+   354→   354→        {Array.from({ length: 4 }).map((_, i) => (
+   355→   355→          <Card key={i} className="gap-0 p-5 py-5">
+   356→   356→            <div className="flex items-center justify-between">
+   357→   357→              <Skeleton className="h-4 w-16" />
+   358→   358→              <Skeleton className="h-9 w-9 rounded-lg" />
+   359→   359→            </div>
+   360→   360→            <Skeleton className="mt-3 h-8 w-20" />
+   361→   361→            <Skeleton className="mt-1 h-3 w-24" />
+   362→   362→          </Card>
+   363→   363→        ))}
+   364→   364→      </div>
+   365→   365→
+   366→   366→      <Card className="gap-0 p-3 sm:p-4 py-3 sm:py-4">
+   367→   367→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+   368→   368→          {Array.from({ length: 4 }).map((_, i) => (
+   369→   369→            <Skeleton key={i} className="h-9 w-full rounded-md" />
+   370→   370→          ))}
+   371→   371→        </div>
+   372→   372→      </Card>
+   373→   373→
+   374→   374→      <Card className="gap-0 py-0 divide-y">
+   375→   375→        {Array.from({ length: 4 }).map((_, i) => (
+   376→   376→          <div key={i} className="flex items-start gap-3 p-4">
+   377→   377→            <Skeleton className="mt-1 size-4 rounded" />
+   378→   378→            <div className="flex-1 space-y-2">
+   379→   379→              <Skeleton className="h-4 w-1/2" />
+   380→   380→              <Skeleton className="h-3 w-3/4" />
+   381→   381→              <div className="flex gap-2">
+   382→   382→                <Skeleton className="h-5 w-16 rounded-md" />
+   383→   383→                <Skeleton className="h-5 w-20 rounded-md" />
+   384→   384→                <Skeleton className="h-5 w-24 rounded-md" />
+   385→   385→              </div>
+   386→   386→            </div>
+   387→   387→            <div className="flex gap-1">
+   388→   388→              <Skeleton className="h-8 w-8 rounded-md" />
+   389→   389→              <Skeleton className="h-8 w-8 rounded-md" />
+   390→   390→            </div>
+   391→   391→          </div>
+   392→   392→        ))}
+   393→   393→      </Card>
+   394→   394→    </div>
+   395→   395→  );
+   396→   396→}
+   397→   397→
+   398→   398→// --------------------------- main view ----------------------------------
+   399→   399→
+   400→   400→export function TasksView() {
+   401→   401→  const hydrated = useHydrated();
+   402→   402→  const {
+   403→   403→    tasks,
+   404→   404→    addTask,
+   405→   405→    updateTask,
+   406→   406→    deleteTask,
+   407→   407→    toggleTask,
+   408→   408→    clearCompleted,
+   409→   409→  } = useTaskStore();
+   410→   410→
+   411→   411→  // filter / search / sort state
+   412→   412→  const [search, setSearch] = React.useState("");
+   413→   413→  const [categoryFilter, setCategoryFilter] = React.useState<
+   414→   414→    "all" | TaskCategory
+   415→   415→  >("all");
+   416→   416→  const [priorityFilter, setPriorityFilter] = React.useState<"all" | Priority>(
+   417→   417→    "all"
+   418→   418→  );
+   419→   419→  const [sort, setSort] = React.useState<SortKey>("due-asc");
+   420→   420→
+   421→   421→  // dialog state
+   422→   422→  const [dialogOpen, setDialogOpen] = React.useState(false);
+   423→   423→  const [editingTask, setEditingTask] = React.useState<Task | undefined>(
+   424→   424→    undefined
+   425→   425→  );
+   426→   426→
+   427→   427→  // ---- stats ----
+   428→   428→  const total = tasks.length;
+   429→   429→  const completedCount = tasks.filter((t) => t.completed).length;
+   430→   430→  const pendingCount = total - completedCount;
+   431→   431→  const overdueCount = tasks.filter(isOverdue).length;
+   432→   432→  const dueTodayCount = tasks.filter(
+   433→   433→    (t) => !t.completed && isDueToday(t)
+   434→   434→  ).length;
+   435→   435→
+   436→   436→  // ---- derived filtered + sorted list ----
+   437→   437→  const filtered = React.useMemo(() => {
+   438→   438→    const q = search.trim().toLowerCase();
+   439→   439→    const list = tasks.filter((t) => {
+   440→   440→      if (categoryFilter !== "all" && t.category !== categoryFilter)
+   441→   441→        return false;
+   442→   442→      if (priorityFilter !== "all" && t.priority !== priorityFilter)
+   443→   443→        return false;
+   444→   444→      if (q) {
+   445→   445→        const hay = `${t.title}\n${t.description}`.toLowerCase();
+   446→   446→        if (!hay.includes(q)) return false;
+   447→   447→      }
+   448→   448→      return true;
+   449→   449→    });
+   450→   450→
+   451→   451→    return [...list].sort((a, b) => {
+   452→   452→      switch (sort) {
+   453→   453→        case "due-asc":
+   454→   454→          // earlier dates first; overdue (past) dates naturally sort before today
+   455→   455→          return a.dueDate.localeCompare(b.dueDate);
+   456→   456→        case "due-desc":
+   457→   457→          return b.dueDate.localeCompare(a.dueDate);
+   458→   458→        case "priority-desc":
+   459→   459→          return PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
+   460→   460→        case "recent":
+   461→   461→          return b.createdAt.localeCompare(a.createdAt);
+   462→   462→        default:
+   463→   463→          return 0;
+   464→   464→      }
+   465→   465→    });
+   466→   466→  }, [tasks, search, categoryFilter, priorityFilter, sort]);
+   467→   467→
+   468→   468→  const hasActiveFilters =
+   469→   469→    search.trim() !== "" ||
+   470→   470→    categoryFilter !== "all" ||
+   471→   471→    priorityFilter !== "all";
+   472→   472→
+   473→   473→  function resetFilters() {
+   474→   474→    setSearch("");
+   475→   475→    setCategoryFilter("all");
+   476→   476→    setPriorityFilter("all");
+   477→   477→    setSort("due-asc");
+   478→   478→  }
+   479→   479→
+   480→   480→  function openAdd() {
+   481→   481→    setEditingTask(undefined);
+   482→   482→    setDialogOpen(true);
+   483→   483→  }
+   484→   484→  function openEdit(task: Task) {
+   485→   485→    setEditingTask(task);
+   486→   486→    setDialogOpen(true);
+   487→   487→  }
+   488→   488→
+   489→   489→  function handleSubmit(state: FormState) {
+   490→   490→    const input = formStateToInput(state);
+   491→   491→    if (editingTask) {
+   492→   492→      updateTask(editingTask.id, input);
+   493→   493→      toast.success("Task updated");
+   494→   494→    } else {
+   495→   495→      addTask(input);
+   496→   496→      toast.success("Task added");
+   497→   497→    }
+   498→   498→    setDialogOpen(false);
+   499→   499→    setEditingTask(undefined);
+   500→   500→  }
+   501→   501→
+   502→   502→  function handleToggle(task: Task) {
+   503→   503→    const next = !task.completed;
+   504→   504→    toggleTask(task.id);
+   505→   505→    toast.success(next ? "Task completed" : "Marked pending");
+   506→   506→  }
+   507→   507→
+   508→   508→  function handleDelete(id: string) {
+   509→   509→    deleteTask(id);
+   510→   510→    toast.success("Task deleted");
+   511→   511→  }
+   512→   512→
+   513→   513→  function handleClearCompleted() {
+   514→   514→    const n = completedCount;
+   515→   515→    if (n === 0) return;
+   516→   516→    clearCompleted();
+   517→   517→    toast.success(
+   518→   518→      `${n} completed task${n === 1 ? "" : "s"} cleared`
+   519→   519→    );
+   520→   520→  }
+   521→   521→
+   522→   522→  // SSR-safe placeholder until the persisted store hydrates.
+   523→   523→  if (!hydrated) return <TasksSkeleton />;
+   524→   524→
+   525→   525→  return (
+   526→   526→    <div className="space-y-6">
+   527→   527→      {/* Header */}
+   528→   528→      <ModuleHeader
+   529→   529→        icon={<ListTodo className="h-5 w-5" />}
+   530→   530→        title="Tasks"
+   531→   531→        description="Your assignments and to-dos"
+   532→   532→        actions={
+   533→   533→          <>
+   534→   534→            {completedCount > 0 ? (
+   535→   535→              <Button
+   536→   536→                variant="ghost"
+   537→   537→                onClick={handleClearCompleted}
+   538→   538→                aria-label="Clear completed tasks"
+   539→   539→              >
+   540→   540→                <Eraser className="size-4" />
+   541→   541→                Clear completed
+   542→   542→              </Button>
+   543→   543→            ) : null}
+   544→   544→            <Button onClick={openAdd}>
+   545→   545→              <Plus className="size-4" />
+   546→   546→              Add task
+   547→   547→            </Button>
+   548→   548→          </>
+   549→   549→        }
+   550→   550→      />
+   551→   551→
+   552→   552→      {/* Stats */}
+   553→   553→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+   554→   554→        <StatCard
+   555→   555→          icon={<ClipboardList className="h-4 w-4" />}
+   556→   556→          label="Total"
+   557→   557→          value={total}
+   558→   558→          sub={`${pendingCount} pending · ${completedCount} done`}
+   559→   559→          tone="primary"
+   560→   560→        />
+   561→   561→        <StatCard
+   562→   562→          icon={<Clock className="h-4 w-4" />}
+   563→   563→          label="Pending"
+   564→   564→          value={pendingCount}
+   565→   565→          sub={`${dueTodayCount} due today`}
+   566→   566→          tone="amber"
+   567→   567→        />
+   568→   568→        <StatCard
+   569→   569→          icon={<CheckCircle className="h-4 w-4" />}
+   570→   570→          label="Completed"
+   571→   571→          value={completedCount}
+   572→   572→          sub={
+   573→   573→            total === 0
+   574→   574→              ? "—"
+   575→   575→              : `${Math.round((completedCount / total) * 100)}%`
+   576→   576→          }
+   577→   577→          tone="teal"
+   578→   578→        />
+   579→   579→        <StatCard
+   580→   580→          icon={<AlertTriangle className="h-4 w-4" />}
+   581→   581→          label="Overdue"
+   582→   582→          value={overdueCount}
+   583→   583→          sub={overdueCount === 0 ? "All good" : "Needs attention"}
+   584→   584→          tone="rose"
+   585→   585→        />
+   586→   586→      </div>
+   587→   587→
+   588→   588→      {/* Controls */}
+   589→   589→      <Card className="gap-0 p-3 sm:p-4 py-3 sm:py-4">
+   590→   590→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+   591→   591→          {/* Search */}
+   592→   592→          <div className="relative">
+   593→   593→            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+   594→   594→            <Input
+   595→   595→              value={search}
+   596→   596→              onChange={(e) => setSearch(e.target.value)}
+   597→   597→              placeholder="Search tasks…"
+   598→   598→              aria-label="Search tasks"
+   599→   599→              className="pl-8"
+   600→   600→            />
+   601→   601→            {search ? (
+   602→   602→              <button
+   603→   603→                type="button"
+   604→   604→                onClick={() => setSearch("")}
+   605→   605→                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+   606→   606→                aria-label="Clear search"
+   607→   607→              >
+   608→   608→                <X className="size-3.5" />
+   609→   609→              </button>
+   610→   610→            ) : null}
+   611→   611→          </div>
+   612→   612→
+   613→   613→          {/* Category filter */}
+   614→   614→          <Select
+   615→   615→            value={categoryFilter}
+   616→   616→            onValueChange={(v) =>
+   617→   617→              setCategoryFilter(v as "all" | TaskCategory)
+   618→   618→            }
+   619→   619→          >
+   620→   620→            <SelectTrigger className="w-full" aria-label="Filter by category">
+   621→   621→              <Filter className="size-3.5 text-muted-foreground" />
+   622→   622→              <SelectValue placeholder="All categories" />
+   623→   623→            </SelectTrigger>
+   624→   624→            <SelectContent>
+   625→   625→              <SelectItem value="all">All categories</SelectItem>
+   626→   626→              {TASK_CATEGORIES.map((c) => (
+   627→   627→                <SelectItem key={c} value={c}>
+   628→   628→                  {c}
+   629→   629→                </SelectItem>
+   630→   630→              ))}
+   631→   631→            </SelectContent>
+   632→   632→          </Select>
+   633→   633→
+   634→   634→          {/* Priority filter */}
+   635→   635→          <Select
+   636→   636→            value={priorityFilter}
+   637→   637→            onValueChange={(v) =>
+   638→   638→              setPriorityFilter(v as "all" | Priority)
+   639→   639→            }
+   640→   640→          >
+   641→   641→            <SelectTrigger className="w-full" aria-label="Filter by priority">
+   642→   642→              <Filter className="size-3.5 text-muted-foreground" />
+   643→   643→              <SelectValue placeholder="All priorities" />
+   644→   644→            </SelectTrigger>
+   645→   645→            <SelectContent>
+   646→   646→              <SelectItem value="all">All priorities</SelectItem>
+   647→   647→              {PRIORITIES.map((p) => (
+   648→   648→                <SelectItem key={p} value={p}>
+   649→   649→                  {p}
+   650→   650→                </SelectItem>
+   651→   651→              ))}
+   652→   652→            </SelectContent>
+   653→   653→          </Select>
+   654→   654→
+   655→   655→          {/* Sort */}
+   656→   656→          <Select
+   657→   657→            value={sort}
+   658→   658→            onValueChange={(v) => setSort(v as SortKey)}
+   659→   659→          >
+   660→   660→            <SelectTrigger className="w-full" aria-label="Sort tasks">
+   661→   661→              <SelectValue placeholder="Sort" />
+   662→   662→            </SelectTrigger>
+   663→   663→            <SelectContent>
+   664→   664→              {SORT_OPTIONS.map((o) => (
+   665→   665→                <SelectItem key={o.value} value={o.value}>
+   666→   666→                  {o.label}
+   667→   667→                </SelectItem>
+   668→   668→              ))}
+   669→   669→            </SelectContent>
+   670→   670→          </Select>
+   671→   671→        </div>
+   672→   672→
+   673→   673→        {/* Active-filters indicator + reset */}
+   674→   674→        {hasActiveFilters ? (
+   675→   675→          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+   676→   676→            <span>
+   677→   677→              Showing{" "}
+   678→   678→              <span className="font-medium text-foreground">
+   679→   679→                {filtered.length}
+   680→   680→              </span>{" "}
+   681→   681→              of {total} task{total === 1 ? "" : "s"}
+   682→   682→            </span>
+   683→   683→            <button
+   684→   684→              type="button"
+   685→   685→              onClick={resetFilters}
+   686→   686→              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+   687→   687→            >
+   688→   688→              <X className="size-3" />
+   689→   689→              Reset filters
+   690→   690→            </button>
+   691→   691→          </div>
+   692→   692→        ) : null}
+   693→   693→      </Card>
+   694→   694→
+   695→   695→      {/* Task list / empty states */}
+   696→   696→      {total === 0 ? (
+   697→   697→        <EmptyState
+   698→   698→          icon={<ListTodo className="h-6 w-6" />}
+   699→   699→          title="No tasks yet"
+   700→   700→          description="Add your first assignment or to-do to start tracking what's due."
+   701→   701→          action={
+   702→   702→            <Button onClick={openAdd}>
+   703→   703→              <Plus className="size-4" />
+   704→   704→              Add your first task
+   705→   705→            </Button>
+   706→   706→          }
+   707→   707→        />
+   708→   708→      ) : filtered.length === 0 ? (
+   709→   709→        <EmptyState
+   710→   710→          icon={<Search className="h-6 w-6" />}
+   711→   711→          title="No tasks match"
+   712→   712→          description="Try adjusting your search or filters to find what you're looking for."
+   713→   713→          action={
+   714→   714→            <Button variant="outline" onClick={resetFilters}>
+   715→   715→              Reset filters
+   716→   716→            </Button>
+   717→   717→          }
+   718→   718→        />
+   719→   719→      ) : (
+   720→   720→        <Card className="gap-0 py-0">
+   721→   721→          <ul className="divide-y">
+   722→   722→            {filtered.map((task) => {
+   723→   723→              const overdue = isOverdue(task);
+   724→   724→              const dueToday = !task.completed && isDueToday(task);
+   725→   725→              const prio = PRIORITY_STYLES[task.priority];
+   726→   726→              const catStyle = TASK_CATEGORY_STYLES[task.category];
+   727→   727→              const rel = relativeDay(task.dueDate);
+   728→   728→              const relTone = overdue
+   729→   729→                ? "text-rose-600 dark:text-rose-300"
+   730→   730→                : dueToday
+   731→   731→                  ? "text-amber-600 dark:text-amber-300"
+   732→   732→                  : "text-muted-foreground";
+   733→   733→
+   734→   734→              return (
+   735→   735→                <li
+   736→   736→                  key={task.id}
+   737→   737→                  className={cn(
+   738→   738→                    "flex items-start gap-3 p-4 transition-colors hover:bg-accent/40",
+   739→   739→                    task.completed && "opacity-70"
+   740→   740→                  )}
+   741→   741→                >
+   742→   742→                  {/* Toggle complete */}
+   743→   743→                  <Checkbox
+   744→   744→                    checked={task.completed}
+   745→   745→                    onCheckedChange={() => handleToggle(task)}
+   746→   746→                    aria-label={
+   747→   747→                      task.completed
+   748→   748→                        ? `Mark "${task.title}" as pending`
+   749→   749→                        : `Mark "${task.title}" as completed`
+   750→   750→                    }
+   751→   751→                    className="mt-0.5"
+   752→   752→                  />
+   753→   753→
+   754→   754→                  {/* Body */}
+   755→   755→                  <div className="min-w-0 flex-1">
+   756→   756→                    <div className="flex items-start gap-2">
+   757→   757→                      {task.completed ? (
+   758→   758→                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+   759→   759→                      ) : (
+   760→   760→                        <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+   761→   761→                      )}
+   762→   762→                      <p
+   763→   763→                        className={cn(
+   764→   764→                          "text-sm font-medium leading-snug",
+   765→   765→                          task.completed &&
+   766→   766→                            "line-through text-muted-foreground"
+   767→   767→                        )}
+   768→   768→                      >
+   769→   769→                        {task.title}
+   770→   770→                      </p>
+   771→   771→                    </div>
+   772→   772→
+   773→   773→                    {task.description ? (
+   774→   774→                      <p
+   775→   775→                        className={cn(
+   776→   776→                          "mt-1 line-clamp-2 text-sm text-muted-foreground",
+   777→   777→                          task.completed && "line-through"
+   778→   778→                        )}
+   779→   779→                      >
+   780→   780→                        {task.description}
+   781→   781→                      </p>
+   782→   782→                    ) : null}
+   783→   783→
+   784→   784→                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+   785→   785→                      <Badge
+   786→   786→                        variant="outline"
+   787→   787→                        className={cn("font-medium", catStyle)}
+   788→   788→                      >
+   789→   789→                        {task.category}
+   790→   790→                      </Badge>
+   791→   791→                      <Badge
+   792→   792→                        variant="outline"
+   793→   793→                        className={cn("font-medium", prio.className)}
+   794→   794→                      >
+   795→   795→                        <span
+   796→   796→                          className={cn("size-1.5 rounded-full", prio.dot)}
+   797→   797→                        />
+   798→   798→                        {prio.label}
+   799→   799→                      </Badge>
+   800→   800→                      <Badge
+   801→   801→                        variant="outline"
+   802→   802→                        className={cn(
+   803→   803→                          "font-medium",
+   804→   804→                          overdue
+   805→   805→                            ? "border-rose-500/25 text-rose-600 dark:text-rose-300"
+   806→   806→                            : "text-muted-foreground"
+   807→   807→                        )}
+   808→   808→                      >
+   809→   809→                        <CalendarDays className="size-3" />
+   810→   810→                        {formatDate(task.dueDate)}
+   811→   811→                        {rel ? (
+   812→   812→                          <span className={cn("font-normal", relTone)}>
+   813→   813→                            ({rel})
+   814→   814→                          </span>
+   815→   815→                        ) : null}
+   816→   816→                      </Badge>
+   817→   817→                    </div>
+   818→   818→                  </div>
+   819→   819→
+   820→   820→                  {/* Actions */}
+   821→   821→                  <div className="flex shrink-0 items-center gap-1">
+   822→   822→                    <Button
+   823→   823→                      variant="ghost"
+   824→   824→                      size="icon"
+   825→   825→                      className="h-8 w-8"
+   826→   826→                      onClick={() => openEdit(task)}
+   827→   827→                      aria-label={`Edit task "${task.title}"`}
+   828→   828→                    >
+   829→   829→                      <Pencil className="size-4" />
+   830→   830→                    </Button>
+   831→   831→                    <ConfirmDialog
+   832→   832→                      trigger={
+   833→   833→                        <Button
+   834→   834→                          variant="ghost"
+   835→   835→                          size="icon"
+   836→   836→                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+   837→   837→                          aria-label={`Delete task "${task.title}"`}
+   838→   838→                        >
+   839→   839→                          <Trash2 className="size-4" />
+   840→   840→                        </Button>
+   841→   841→                      }
+   842→   842→                      title="Delete task?"
+   843→   843→                      description={`"${task.title}" will be permanently removed.`}
+   844→   844→                      onConfirm={() => handleDelete(task.id)}
+   845→   845→                    />
+   846→   846→                  </div>
+   847→   847→                </li>
+   848→   848→              );
+   849→   849→            })}
+   850→   850→          </ul>
+   851→   851→        </Card>
+   852→   852→      )}
+   853→   853→
+   854→   854→      <TaskFormDialog
+   855→   855→        open={dialogOpen}
+   856→   856→        onOpenChange={(o) => {
+   857→   857→          setDialogOpen(o);
+   858→   858→          if (!o) setEditingTask(undefined);
+   859→   859→        }}
+   860→   860→        mode={editingTask ? "edit" : "add"}
+   861→   861→        task={editingTask}
+   862→   862→        onSubmit={handleSubmit}
+   863→   863→      />
+   864→   864→    </div>
+   865→   865→  );
+   866→   866→}
+   867→   867→
+   868→   868→export default TasksView;
+   869→   869→

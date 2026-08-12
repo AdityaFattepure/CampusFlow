@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
 /**
- * KPI card used on the dashboard (and reused in module headers).
- * `tone` tints the icon chip — keep to one of the semantic tones.
+ * Pixel KPI card: hard 2px outline, offset block shadow, square icon chip,
+ * big tabular value. Used on the dashboard and module headers.
  */
 export function StatCard({
   icon,
@@ -14,6 +14,7 @@ export function StatCard({
   value,
   sub,
   tone = "primary",
+  display = false,
   className,
 }: {
   icon: React.ReactNode;
@@ -21,32 +22,40 @@ export function StatCard({
   value: React.ReactNode;
   sub?: React.ReactNode;
   tone?: "primary" | "amber" | "rose" | "violet" | "teal";
+  /** When true, render the value in the chunky Press Start 2P display font. */
+  display?: boolean;
   className?: string;
 }) {
   const toneMap: Record<string, string> = {
-    primary: "bg-primary/12 text-primary",
-    amber: "bg-amber-500/12 text-amber-600 dark:text-amber-300",
-    rose: "bg-rose-500/12 text-rose-600 dark:text-rose-300",
-    violet: "bg-violet-500/12 text-violet-600 dark:text-violet-300",
-    teal: "bg-teal-500/12 text-teal-600 dark:text-teal-300",
+    primary: "bg-primary/15 text-primary border-[var(--pixel-line)]",
+    amber: "bg-accent/20 text-accent-foreground border-[var(--pixel-line)]",
+    rose: "bg-destructive/15 text-destructive border-[var(--pixel-line)]",
+    violet:
+      "bg-chart-5/15 text-chart-5 border-[var(--pixel-line)]",
+    teal: "bg-chart-4/15 text-chart-4 border-[var(--pixel-line)]",
   };
 
   return (
-    <Card className={cn("gap-0 p-5 py-5", className)}>
+    <Card className={cn("gap-0 p-5", className)}>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
         <span
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg",
+            "flex h-9 w-9 items-center justify-center border-2",
             toneMap[tone]
           )}
         >
           {icon}
         </span>
       </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+      <div
+        className={cn(
+          "mt-3 font-semibold tracking-tight tabular-nums",
+          display ? "font-display text-2xl" : "text-3xl"
+        )}
+      >
         {value}
       </div>
       {sub ? (

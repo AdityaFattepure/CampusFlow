@@ -84,14 +84,15 @@ export function NotificationsPopover({
     <Popover>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           size="icon"
           aria-label="Notifications"
-          className="relative h-9 w-9 rounded-full"
+          className="pixel-btn relative h-9 w-9 bg-card"
         >
           <Bell className="h-4 w-4" />
           {hydrated && count > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center border-2 border-[var(--pixel-line)] bg-destructive px-1 text-[10px] font-bold text-white">
               {count > 9 ? "9+" : count}
             </span>
           ) : null}
@@ -131,7 +132,7 @@ export function NotificationsPopover({
                   className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
                 >
                   <span
-                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${toneClasses[it.tone]}`}
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border-2 border-[var(--pixel-line)] ${toneClasses[it.tone]}`}
                   >
                     {it.kind === "task" ? (
                       it.tone === "rose" ? (

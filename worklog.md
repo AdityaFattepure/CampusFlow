@@ -402,3 +402,355 @@ Stage Summary:
   nav), sticky footer on both layouts, hydration-clean.
 - Screenshots saved: verify-desktop-light.png, verify-desktop-dark.png,
   verify-mobile-light.png, verify-mobile-dark.png.
+
+---
+Task ID: P-1
+Agent: main (orchestrator)
+Task: Redesign the entire CampusFlow into a calm, minimal "Pixelscape" — pixel-art
+aesthetic that stays mindful/readable to use.
+
+Work Log:
+- `src/app/globals.css` — full Pixelscape theme:
+  - Fonts mapped: `--font-sans` / `--font-mono` → `var(--font-pixel)` (Pixelify
+    Sans). New `--font-display` → Press Start 2P.
+  - `--radius: 0` everywhere (sm/md/lg/xl all 0).
+  - Two palettes: light "Dawn" (warm parchment canvas, deep ink lines, sage
+    primary, amber/rose/violet/teal accents) and dark "Night" (warm charcoal
+    canvas, cream lines, glowing sage). No blue/indigo chrome.
+  - New pixel tokens: `--pixel-line` (high-contrast outline), `--pixel-shadow`
+    (hard offset shadow color), `--pixel-line-soft`.
+  - Pixel utility classes: `.pixel-border`, `.pixel-shadow`, `.pixel-shadow-sm`,
+    `.pixel-shadow-primary`, `.pixel-inset`, `.pixel-btn` (interactive: shadow
+    collapses on press), `.font-display`, `.pixel-dither` (4px checker), 
+    `.pixel-segments` (HP-bar blocks).
+  - Global `.pixelscape *` rule forces `border-radius:0 !important` (unlayered +
+    important → beats Tailwind rounded-* utilities) so EVERY element is sharp.
+  - Global pixel styling for shadcn slots: card (2px border + 4px block shadow),
+    input/textarea/select-trigger (2px border + 2px shadow), badge (2px border),
+    checkbox (square), progress (segmented fill via repeating gradient), tabs
+    (underline), dialog/alert/popover/sheet content (2px border + 6px shadow) +
+    overlays, buttons (pixel border + block shadow + press animation; ghost/link
+    excluded via `data-variant`), select content/items, slider (square thumb),
+    tooltip, scrollbars, recharts axis text, sonner toasts.
+- `src/components/ui/button.tsx` — added `data-variant={variant ?? "default"}` so
+  the global button CSS can exclude ghost/link from the pixel border/shadow.
+- `src/app/layout.tsx` — loads `Pixelify_Sans` (--font-pixel) + `Press_Start_2P`
+  (--font-press) via next/font; wraps children in `<div className="pixelscape">`.
+  Metadata → "CampusFlow — Pixel Edition".
+- `src/components/layout/pixel-logo.tsx` — NEW. SVG pixel graduation cap
+  (crispEdges, 14×14 grid) in primary + amber tassel.
+- `src/components/theme-toggle.tsx` — pixel-btn block toggle (sun/moon crossfade).
+- `src/components/layout/app-shell.tsx` — pixel chrome: 2px borders everywhere,
+  Brand = pixel cap tile (border + shadow) + Press Start 2P wordmark; nav
+  buttons use border-2 + inset active state (primary fill, pixel-inset shadow);
+  pixel footer with PixelLogo; mobile bottom nav with border-t-2 active marker;
+  pixel skeleton mirrors the layout.
+- `src/components/layout/notifications-popover.tsx` — trigger = pixel-btn with
+  square destructive count badge; reminder icon chips = 2px border squares.
+- Shared components pixelized:
+  - `stat-card.tsx` — hard border (via Card global), square 2px icon chip, big
+    value; new `display` prop renders value in Press Start 2P.
+  - `module-header.tsx` — square icon tile with pixel-shadow-sm.
+  - `empty-state.tsx` — 2px dashed border + blocky icon tile.
+- `src/components/modules/dashboard/dashboard-view.tsx` — Pixelscape hero: dawn
+  gradient (amber→sage→teal) with a pixel sun (square + inner block) + dithered
+  ground strip, hard border + shadow; 4 stat cards with Press Start 2P numbers;
+  "Today's tasks" + "Expenses" pixel cards (square category dots, divide-y-2);
+  "Study progress" card with a 20-segment PixelBar (HP blocks) for overall +
+  per-goal Progress bars; "Recent notes" pixel list. Pixel skeleton.
+
+Stage Summary:
+- Core Pixelscape design system is in place and propagates to ALL module views
+  via the global `.pixelscape *` radius override + per-slot CSS (cards, buttons,
+  inputs, selects, dialogs, popovers, sliders, tooltips, toasts, scrollbars).
+- The 4 CRUD module views (tasks/expenses/study/notes) will inherit sharp
+  corners, pixel fonts, pixel borders/shadows automatically. A focused pixel-
+  polish pass on each (via parallel subagents) follows to swap residual soft
+  shadows/rounded chips for pixel treatments and ensure cohesion.
+
+---
+Task ID: P-2d
+Agent: notes-pixel-polish
+Task: Pixel-style polish pass on the Notes module view.
+
+Work Log:
+- Read worklog P-1 entry to confirm the Pixelscape design system (tokens,
+  utility classes, global shadcn overrides) and verified `StatCard` exposes
+  the `display` prop for Press Start 2P numeric rendering.
+- `src/components/modules/notes/notes-view.tsx` — surgical visual edits only;
+  store logic, types, imports, hydration guard, toasts, search/filter/sort,
+  CRUD handlers, and dialog form are untouched.
+  - Stat cards: added `display` to all three numeric stat cards (Total notes,
+    Academics count, Updated today) so counts render in Press Start 2P.
+  - Note cards: title bumped from `font-medium` → `font-bold`; removed the
+    soft `transition-shadow hover:shadow-md` on the `Card` so the global
+    pixel block shadow is the only shadow. `line-clamp-4` content +
+    muted "Updated" footer preserved.
+  - Category quick-filter chips: rewrote as pixel tiles —
+    `border-2 border-[var(--pixel-line)] px-2.5 py-1 text-xs font-semibold`;
+    active state = `bg-primary text-primary-foreground pixel-inset`,
+    inactive = `bg-card hover:bg-muted`. Removed `rounded-full` from both
+    the chip and the inner count badge.
+  - Action icon buttons (Edit / Delete) on each card: added
+    `border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted`
+    so they read as pixel tiles on hover; kept the existing
+    `hover:text-foreground` (Edit) and `hover:text-destructive` (Delete).
+  - Search input trailing clear (X) button: converted from `rounded-md` soft
+    button to a pixel tile (`border-2 border-[var(--pixel-line)] bg-card
+    hover:bg-muted`). Leading Search icon was already an uncontained,
+    non-rounded absolutely-positioned icon — left as-is (no rounded-full).
+  - Skeleton block: replaced `rounded-xl`/`rounded-md` with
+    `border-2 border-[var(--pixel-line)] pixel-shadow-sm` on every placeholder
+    so the loading state matches real pixel cards.
+  - No gradients exist in this view, so no header/banner swap was needed.
+  - Verified no `shadow-sm`/`shadow-md` utility remains on any button/card.
+  - No blue/indigo introduced; palette stays sage/amber/teal.
+
+Stage Summary:
+- File edited: `src/components/modules/notes/notes-view.tsx` (only file touched).
+- Changes: stat cards now use Press Start 2P display numerals; note titles
+  are bolder; note cards rely solely on the global pixel shadow; category
+  chips + count badges are sharp pixel tiles with `pixel-inset` active state;
+  Edit/Delete icon buttons become pixel tiles on hover; search clear button
+  is a pixel tile; skeletons now mirror the real pixel card chrome. All
+  functionality (CRUD, search, category filter + chips, stats, hydration
+  guard, toasts) preserved; no logic/types/imports changed.
+
+---
+Task ID: P-2a
+Agent: tasks-pixel-polish
+Task: Pixel-style polish pass on the Tasks module view.
+
+Work Log:
+- Read worklog P-1 entry to confirm Pixelscape design system (global radius:0
+  override, pixel utility classes, StatCard `display` prop, palette tokens).
+- Audited `tasks-view.tsx` for residual soft styling; found no `shadow-*`
+  utilities on buttons/cards (global pixel CSS handles shadows) — clean.
+- StatCards: added `display` prop to all four KPI cards (Total, Pending,
+  Completed, Overdue) so the numeric values render in Press Start 2P chunky
+  pixel digits while label/subtext stay in Pixelify Sans.
+- Task rows: bumped title `<p>` from `font-medium` → `font-bold` (Pixelify Sans
+  bold reads better at small sizes); changed list `<ul>` from bare `divide-y`
+  to `divide-y-2 divide-[var(--pixel-line)]/40` for crisp 2px pixel dividers
+  (matched in skeleton Card too).
+- Priority dot inside priority Badge: changed `size-1.5 rounded-full` →
+  `h-2 w-2` (crisp square, no rounded-full) for pixel consistency.
+- Action icon buttons (Edit + Delete ghost Buttons): added
+  `border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted`
+  so they read as pixel tiles on hover instead of bare ghost icons. Delete
+  button retains its `hover:text-destructive` tint.
+- Search-clear X button: swapped `rounded p-1 hover:bg-accent` for
+  `border-2 border-transparent p-1 hover:border-[var(--pixel-line)]
+  hover:bg-muted` — matches the pixel-tile hover treatment of the action
+  buttons.
+- Skeleton (pre-hydration): stripped every explicit `rounded-*` class
+  (cleanliness, even though global radius:0 already flattens them) and gave
+  block-level placeholders a pixel outline so the skeleton mirrors the real
+  pixel cards/buttons:
+  - header icon tile (`h-11 w-11`) + header button (`h-9 w-28`) →
+    `border-2 border-[var(--pixel-line)] pixel-shadow-sm`.
+  - stat-card icon chips (`h-9 w-9`) → `border-2 border-[var(--pixel-line)]`
+    (matches real StatCard icon chip which has border-2 only, no shadow).
+  - controls-bar select/input placeholders (`h-9 w-full`) →
+    `border-2 border-[var(--pixel-line)] pixel-shadow-sm` (matches pixel
+    select border + 2px shadow).
+  - per-row checkbox (`size-4`) → `border-2 border-[var(--pixel-line)]`.
+  - per-row action buttons (`h-8 w-8`) → `border-2 border-[var(--pixel-line)]`.
+  - tiny text-bar Skeletons left borderless (just shimmer) to avoid noisy
+    borders around shimmering text placeholders.
+  - skeleton task-list Card switched to `divide-y-2 divide-[var(--pixel-line)]/40`
+    to mirror the real list Card.
+- Verified: no `shadow-sm`/`shadow-md`/`shadow-none`/custom box-shadow classes
+  remain on any button or Card; no `rounded-*` classes remain anywhere in the
+  file; no blue/indigo introduced.
+- Preserved ALL existing functionality: store hooks (addTask/updateTask/
+  deleteTask/toggleTask/clearCompleted), FormState types, imports, search/
+  filter/sort logic, stats math, hydration guard (`if (!hydrated) return
+  <TasksSkeleton />`), toasts, ConfirmDialog for delete, both named and
+  default exports.
+
+Stage Summary:
+- File edited: src/components/modules/tasks/tasks-view.tsx
+- Changes:
+  • 4 StatCards → `display` (Press Start 2P numeric values).
+  • Task title → `font-bold`; list dividers → `divide-y-2 divide-[var(--pixel-line)]/40`.
+  • Priority dot → square `h-2 w-2` (no rounded-full).
+  • Edit/Delete ghost icon buttons → pixel-tile hover (`border-2 border-transparent
+    hover:border-[var(--pixel-line)] hover:bg-muted`).
+  • Search-clear button → matching pixel-tile hover treatment.
+  • Skeleton: removed all `rounded-*`; added `border-2 border-[var(--pixel-line)]`
+    (+ `pixel-shadow-sm` where it mirrors Card/button blocks) so the loading
+    state visually matches the real pixel cards/selects/buttons.
+  • Skeleton task-list Card uses the same `divide-y-2 divide-[var(--pixel-line)]/40`
+    divider style as the hydrated list.
+- No logic/types/store/hydration/toast changes; file still starts with
+  `"use client";`; strict-TS clean (no `any`); responsive + a11y preserved.
+
+---
+Task ID: P-2c
+Agent: study-pixel-polish
+Task: Pixel-style polish pass on the Study Planner module view.
+
+Work Log:
+- Read P-1 worklog entry + globals.css to absorb the Pixelscape design system
+  (Pixelify Sans body, Press Start 2P `.font-display`, --radius:0 enforced
+  globally, pixel tokens `--pixel-line`/`--pixel-shadow`/`--pixel-line-soft`, and
+  the `.pixel-segments` HP-bar / `.pixel-shadow` / `.pixel-shadow-sm` /
+  `.pixel-border` utility classes).
+- Audited `study-view.tsx` for residual soft styling: featured card had a
+  `rounded-full` semi-transparent chip + a `text-4xl font-semibold` overall %,
+  StatCards were not opting into the Press Start 2P `display` value, the
+  GoalCard priority dot was `size-1.5 rounded-full` (round, not pixel),
+  the subject was `font-semibold`, the overdue chip was not bolded, the icon
+  ghost buttons had no pixel-tile hover affordance, and the skeleton used
+  `rounded-xl`/`rounded-md`/`rounded` soft placeholders.
+- Featured "Overall Study Progress" Card: switched the big overall %% number
+  to `font-display text-3xl text-primary` (chunky Press Start 2P), promoted
+  the TrendingUp "done" chip from `rounded-full bg-primary/12` to a true
+  pixel tile (`border-2 border-[var(--pixel-line)] bg-primary/15
+  pixel-shadow-sm`, `font-bold` label), and ADDED a 20-segment PixelBar
+  (`<div className="pixel-segments">…<i className={i<Math.round(overall/5)?"on":""}/>`) 
+  below the segmented Progress bar — a strong pixel HP-bar motif mirroring
+  the dashboard. Per-goal Progress bars left untouched (global segmented
+  fill already applies).
+- StatCards: passed `display` to all four (Overall %%, Active count,
+  Completed count, Due-this-week count) so their values render in Press
+  Start 2P, matching the dashboard stat row.
+- GoalCard: subject bumped `font-semibold` -> `font-bold`; priority dot
+  changed from `size-1.5 rounded-full` to `h-2 w-2` (square pixel block,
+  no longer relying on the global radius override); overdue target-date
+  chip now keeps `font-bold` on the rose text; completed-goal `opacity-70`
+  dim preserved as-is.
+- Action icon buttons (Edit pencil, Delete trash via ConfirmDialog trigger):
+  added `border-2 border-transparent hover:border-[var(--pixel-line)]
+  hover:bg-muted` so hover reveals a pixel-tile outline. The "Mark
+  complete / Reopen" button was left as a normal Button (global pixel
+  styling applies to default/secondary/outline variants).
+- Skeleton: swapped every card-sized placeholder from `rounded-xl border
+  bg-card` / `rounded-md bg-muted` / `rounded bg-muted` to
+  `border-2 border-[var(--pixel-line)] bg-card pixel-shadow-sm` (icon tile,
+  button placeholder, featured + stat rows) / `pixel-shadow` (taller goal
+  card placeholders), matching real pixel cards; tiny text-line placeholders
+  dropped their `rounded` and stay as `bg-muted` bars (no border needed).
+- Verified no residual Tailwind `shadow-*` utilities, no `rounded-full/xl/md/lg`
+  classes, no gradients, no blue/indigo/sky/cyan colors remain in the file.
+  No store logic, types, imports, hydration guard, toasts, or slider logic
+  were touched.
+
+Stage Summary:
+- File edited: `src/components/modules/study/study-view.tsx` (in place).
+- Changes: featured Overall % now Press Start 2P + new 20-segment PixelBar
+  HP row + pixel-bordered "done" chip; 4 StatCards opt into `display`; goal
+  subject bold, priority dot square (`h-2 w-2`), overdue chip bold; Edit/
+  Delete icon buttons gain pixel-tile hover borders; skeleton placeholders
+  pixel-bordered + pixel-shadowed. All functionality (CRUD, slider progress,
+  per-goal Progress, filters, hydration guard, toasts) unchanged.
+
+---
+Task ID: P-2b
+Agent: expenses-pixel-polish
+Task: Pixel-style polish pass on the Expenses module view.
+
+Work Log:
+- Read `worklog.md` (P-1 entry) to understand the Pixelscape design system
+  (global `.pixelscape *` radius:0, pixel tokens, shared StatCard `display`
+  prop for Press Start 2P, category colors from EXPENSE_CATEGORY_META).
+- Edited `src/components/modules/expenses/expenses-view.tsx` ONLY — surgical
+  visual updates; no store/types/imports/hydration/toast/chart-data logic
+  changes.
+- Stat cards:
+  - "This Month" total, "All-time" total, and "Transactions" count →
+    added `display` prop so the value renders in Press Start 2P.
+  - "Top Category" (string value) intentionally left on the default font
+    so wide category names don't overflow.
+- Donut chart:
+  - Pie already had `strokeWidth={0}` + `paddingAngle={2}`; added
+    `cornerRadius={0}` explicitly for pixel cohesion.
+  - Center overlay total → switched from `text-lg font-semibold` to
+    `font-display text-base leading-none tabular-nums` (Press Start 2P).
+  - Breakdown list dots → square `h-3 w-3 border-2 border-[var(--pixel-line)]`
+    (was `size-2.5 rounded-full`).
+  - Breakdown per-category bars → outer track now
+    `h-2.5 w-full border-2 border-[var(--pixel-line)] bg-muted`, inner fill
+    dropped `rounded-full`/`overflow-hidden` for crisp pixel blocks.
+- History table:
+  - Added `[&_td]:border-2 [&_td]:border-[var(--pixel-line)]/30
+    [&_th]:border-2 [&_th]:border-[var(--pixel-line)]/30` on the shadcn
+    Table so all cells/headers get crisp 2px pixel dividers.
+  - Category badge dots in cells → square `size-2 border-2
+    border-[var(--pixel-line)]` (was `size-2 rounded-full`).
+  - Amount cell → `text-right font-bold tabular-nums`
+    (was `font-medium`).
+- Action icon buttons (Edit/Delete, desktop + mobile) → added
+  `border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted`
+  so ghost icon buttons get a pixel-tile-on-hover feel (default ghost
+  styling is excluded from global pixel border).
+- Mobile card list:
+  - `<li>` row → `border-2 border-[var(--pixel-line)] p-3` (was
+    `rounded-lg border`).
+  - Category dot → square `h-3 w-3 border-2 border-[var(--pixel-line)]`
+    (was `size-2.5 rounded-full`).
+  - Amount → `font-bold tabular-nums` (was `font-semibold`).
+- Skeleton: swapped every `rounded-xl` placeholder for
+  `border-2 border-[var(--pixel-line)] pixel-shadow-sm` so the loading
+  state mirrors the real pixel cards (radius:0 globally already flattens
+  them, but the explicit border + offset shadow makes the skeleton read
+  as a true pixel card grid).
+- Verified: no `shadow-*` utilities left on buttons/cards (global
+  handles pixel shadows), no `rounded-*` left anywhere, no gradients
+  present. The primary "Add Expense" `<Button>` has no overrides and
+  inherits the global pixel button styling.
+
+Stage Summary:
+- File edited: `src/components/modules/expenses/expenses-view.tsx`
+- Changes: StatCard `display` prop on the 3 numeric cards; Pie chart
+  `cornerRadius={0}` + Press Start 2P center total; square bordered
+  breakdown dots and pixel-bordered progress bars; crisp 2px Table
+  dividers, square category dots, bold tabular amounts; pixel-tile
+  hover state on Edit/Delete ghost icon buttons (desktop + mobile);
+  mobile rows use 2px pixel borders + square dots + bold amount; pixel
+  skeleton with `pixel-shadow-sm`. All functionality (CRUD, search /
+  filter / sort, donut chart, breakdown, history table, mobile card
+  list, hydration guard, toasts) preserved unchanged.
+
+---
+Task ID: P-3
+Agent: main (orchestrator)
+Task: Verify the Pixelscape redesign end-to-end and finalize.
+
+Work Log:
+- Dispatched 4 parallel subagents (P-2a/b/c/d) to pixel-polish the Tasks,
+  Expenses, Study, Notes views (display-font stat numbers, square dots/tiles,
+  divide-y-2 dividers, pixel-tile hover on icon buttons, removed soft shadows,
+  pixel skeletons). All completed in place.
+- Fixed dashboard hero: replaced the smooth gradient with a hard-banded pixel
+  sky (amber → sage → teal in 3 discrete bands) + dither transition strips +
+  horizon line + dithered ground, for a true "pixelscape" landscape.
+- Fixed all 4 dashboard CardHeaders: added `flex` so `items-center` actually
+  vertically centers the section title vs. the "View all" ghost button (the
+  shadcn CardHeader base is `grid`, so `flex-row` alone had no effect).
+- `bun run lint` → clean.
+- Agent Browser verification (clean localStorage reload):
+  * No page errors, no console errors, no hydration mismatches.
+  * Dashboard renders the banded pixel hero, 4 stat cards (Press Start 2P
+    numbers), today's tasks, expense bar chart, 20-segment pixel HP study bar,
+    recent notes.
+  * Dark mode: toggled light→dark, reloaded → "dark" persisted. No errors.
+  * Add task: dialog → validation (submit disabled until title) → task added
+    with toast → row appears. ✓
+  * Add expense: ₹300 "Pixel lunch" → total updated ₹4,500 → ₹4,800 live, new
+    row + toast. ✓
+  * Mobile (390×844): bottom tab nav present, sidebar hidden, footer_bottom
+    (784) vs nav_top (785) → no overlap (sticky footer correct). ✓
+- VLM (Playwright screenshots) assessment: dashboard redesign rated 9/10 —
+  "highly cohesive and successful... finished product from a high-end indie
+  game interface." Confirmed sharp corners, hard offset shadows, pixel
+  typography, banded/dithered hero (no smooth gradient), calm + readable.
+
+Stage Summary:
+- Pixelscape redesign complete and browser-verified. All 5 modules share one
+  cohesive pixel-art system (Pixelify Sans + Press Start 2P, radius:0, 2px
+  hard borders, offset block shadows, dawn/night palettes) via global CSS that
+  propagates to every shadcn primitive + the 4 module views.
+- Screenshots: pixel-dash-light2.png, pixel-dash-dark.png,
+  pixel-mobile-light.png, pixel-mobile-dark.png, pixel-tasks-final.png.
