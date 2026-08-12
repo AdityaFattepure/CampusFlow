@@ -62,9 +62,30 @@ export function createSeedTasks(): Task[] {
 
 export function createSeedExpenses(): Expense[] {
   return [
+    // --- Income ---
+    {
+      id: "seed-inc-1",
+      amount: 5000,
+      kind: "income",
+      category: "Pocket Money",
+      description: "Monthly pocket money",
+      date: daysFromTodayISO(-6),
+      createdAt: nowISO(),
+    },
+    {
+      id: "seed-inc-2",
+      amount: 1500,
+      kind: "income",
+      category: "Refund",
+      description: "Bookstore refund",
+      date: daysFromTodayISO(-2),
+      createdAt: nowISO(),
+    },
+    // --- Expenses ---
     {
       id: "seed-exp-1",
       amount: 2000,
+      kind: "expense",
       category: "Food",
       description: "Mess + canteen (month)",
       date: daysFromTodayISO(-6),
@@ -73,6 +94,7 @@ export function createSeedExpenses(): Expense[] {
     {
       id: "seed-exp-2",
       amount: 800,
+      kind: "expense",
       category: "Education",
       description: "DBMS reference book",
       date: daysFromTodayISO(-4),
@@ -81,6 +103,7 @@ export function createSeedExpenses(): Expense[] {
     {
       id: "seed-exp-3",
       amount: 600,
+      kind: "expense",
       category: "Transport",
       description: "Metro recharge",
       date: daysFromTodayISO(-3),
@@ -89,6 +112,7 @@ export function createSeedExpenses(): Expense[] {
     {
       id: "seed-exp-4",
       amount: 450,
+      kind: "expense",
       category: "Entertainment",
       description: "Movie night",
       date: daysFromTodayISO(-2),
@@ -97,6 +121,7 @@ export function createSeedExpenses(): Expense[] {
     {
       id: "seed-exp-5",
       amount: 400,
+      kind: "expense",
       category: "Other",
       description: "Stationery",
       date: daysFromTodayISO(-1),
@@ -105,9 +130,46 @@ export function createSeedExpenses(): Expense[] {
     {
       id: "seed-exp-6",
       amount: 250,
+      kind: "expense",
       category: "Food",
       description: "Dinner",
       date: todayISO(),
+      createdAt: nowISO(),
+    },
+    // --- Borrow (you owe a friend) ---
+    {
+      id: "seed-bor-1",
+      amount: 300,
+      kind: "borrow",
+      category: "Transfer",
+      description: "Borrowed for concert ticket",
+      date: daysFromTodayISO(-1),
+      counterparty: "Rahul",
+      settled: false,
+      createdAt: nowISO(),
+    },
+    // --- Lend (a friend owes you) ---
+    {
+      id: "seed-len-1",
+      amount: 150,
+      kind: "lend",
+      category: "Transfer",
+      description: "Paid for shared cab",
+      date: daysFromTodayISO(-2),
+      counterparty: "Priya",
+      settled: false,
+      createdAt: nowISO(),
+    },
+    // --- A settled lend (repaid) ---
+    {
+      id: "seed-len-2",
+      amount: 200,
+      kind: "lend",
+      category: "Transfer",
+      description: "Lent for lunch",
+      date: daysFromTodayISO(-5),
+      counterparty: "Aman",
+      settled: true,
       createdAt: nowISO(),
     },
   ];

@@ -34,12 +34,36 @@ export const EXPENSE_CATEGORIES = [
 ] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+export const INCOME_CATEGORIES = [
+  "Pocket Money",
+  "Stipend",
+  "Refund",
+  "Gift",
+  "Other",
+] as const;
+export type IncomeCategory = (typeof INCOME_CATEGORIES)[number];
+
+/** A money transaction is one of four kinds. */
+export type TransactionKind = "expense" | "income" | "borrow" | "lend";
+export const TRANSACTION_KINDS: TransactionKind[] = [
+  "expense",
+  "income",
+  "borrow",
+  "lend",
+];
+
+/** Category broadened to cover all transaction kinds. */
+export type TransactionCategory = ExpenseCategory | IncomeCategory | "Transfer";
+
 export interface Expense {
   id: string;
   amount: number;
-  category: ExpenseCategory;
+  kind: TransactionKind; // expense | income | borrow | lend
+  category: TransactionCategory;
   description: string;
   date: string; // ISO yyyy-mm-dd
+  counterparty?: string; // friend name (for borrow / lend)
+  settled?: boolean; // debt repaid? (for borrow / lend)
   createdAt: string;
 }
 
@@ -96,7 +120,9 @@ export type ModuleKey =
 
 // Input shapes (omit generated fields)
 export type TaskInput = Omit<Task, "id" | "createdAt" | "completed">;
-export type ExpenseInput = Omit<Expense, "id" | "createdAt">;
+export type ExpenseInput = Omit<Expense, "id" | "createdAt" | "settled"> & {
+  settled?: boolean;
+};
 export type StudyGoalInput = Omit<StudyGoal, "id" | "createdAt" | "sessions">;
 export type StudySessionInput = {
   date: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell } from "recharts";
 import {
   Wallet,
@@ -8,12 +9,14 @@ import {
   Search,
   Pencil,
   Trash2,
-  TrendingDown,
-  CalendarDays,
-  Receipt,
   IndianRupee,
-  PieChart as PieChartIcon,
-  BarChart3,
+  ArrowDownLeft,
+  ArrowUpRight,
+  HandCoins,
+  Banknote,
+  Check,
+  RotateCcw,
+  Scale,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,18 +24,24 @@ import { useExpenseStore } from "@/lib/stores";
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  TRANSACTION_KINDS,
   type Expense,
-  type ExpenseCategory,
   type ExpenseInput,
+  type ExpenseCategory,
+  type IncomeCategory,
+  type TransactionKind,
+  type TransactionCategory,
 } from "@/lib/types";
 import {
   EXPENSE_CATEGORY_META,
+  INCOME_CATEGORY_STYLES,
+  TRANSACTION_KIND_META,
   formatINR,
-  formatINRCompact,
   formatDate,
-  todayISO,
   isSameMonth,
-  monthLabel,
+  summarizeMoney,
+  type TransactionKindMeta,
 } from "@/lib/format";
 
 import { ModuleHeader } from "@/components/shared/module-header";
@@ -41,17 +50,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -60,22 +64,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import {
   Table,
   TableBody,
   TableCell,
@@ -83,769 +71,306 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
-// ----------------------------- helpers ----------------------------------
+const KIND_ICONS: Record<TransactionKindMeta["icon"], React.ReactNode> = {
+  "arrow-down-left": <ArrowDownLeft className="h-3.5 w-3.5" />,
+  "arrow-up-right": <ArrowUpRight className="h-3.5 w-3.5" />,
+  "hand-coins": <HandCoins className="h-3.5 w-3.5" />,
+  banknote: <Banknote className="h-3.5 w-3.5" />,
+};
 
+type KindFilter = "all" | TransactionKind;
 type TimeFilter = "month" | "week" | "all";
-type SortKey = "newest" | "oldest" | "amount-desc" | "amount-asc";
-type CategoryFilter = "all" | ExpenseCategory;
-
-/** Whether an ISO yyyy-mm-dd falls within the last 7 calendar days (inclusive of today). */
-function withinThisWeek(iso: string, ref: Date = new Date()): boolean {
-  if (!iso) return false;
-  const target = new Date(iso + "T00:00:00");
-  const today = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
-  const diffDays = Math.round(
-    (today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  return diffDays >= 0 && diffDays <= 6;
-}
-
-function matchesTimeFilter(iso: string, filter: TimeFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "month") return isSameMonth(iso);
-  return withinThisWeek(iso);
-}
-
-function sortExpenses(list: Expense[], key: SortKey): Expense[] {
-  const copy = [...list];
-  switch (key) {
-    case "oldest":
-      copy.sort(
-        (a, b) =>
-          a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt)
-      );
-      break;
-    case "amount-desc":
-      copy.sort((a, b) => b.amount - a.amount);
-      break;
-    case "amount-asc":
-      copy.sort((a, b) => a.amount - b.amount);
-      break;
-    case "newest":
-    default:
-      copy.sort(
-        (a, b) =>
-          b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-      );
-      break;
-  }
-  return copy;
-}
-
-// --------------------------- expense form -------------------------------
-
-interface FormState {
-  amount: string;
-  category: ExpenseCategory;
-  description: string;
-  date: string;
-}
-
-function buildFormState(expense?: Expense): FormState {
-  return expense
-    ? {
-        amount: String(expense.amount),
-        category: expense.category,
-        description: expense.description,
-        date: expense.date,
-      }
-    : {
-        amount: "",
-        category: "Food",
-        description: "",
-        date: todayISO(),
-      };
-}
-
-function ExpenseFormDialog({
-  trigger,
-  initial,
-  onSubmit,
-  submitLabel,
-  title,
-  description,
-}: {
-  trigger: React.ReactNode;
-  initial?: Expense;
-  onSubmit: (input: ExpenseInput) => void;
-  submitLabel: string;
-  title: string;
-  description: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState<FormState>(() =>
-    buildFormState(initial)
-  );
-
-  // Reset the form whenever the dialog is reopened so it reflects the latest
-  // `initial` value (important for the edit use case).
-  React.useEffect(() => {
-    if (open) setForm(buildFormState(initial));
-  }, [open, initial]);
-
-  const amountNum = Number(form.amount);
-  const amountValid =
-    form.amount.trim() !== "" && Number.isFinite(amountNum) && amountNum > 0;
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!amountValid) {
-      toast.error("Enter a valid amount");
-      return;
-    }
-    onSubmit({
-      amount: Math.round(amountNum),
-      category: form.category,
-      description: form.description.trim(),
-      date: form.date || todayISO(),
-    });
-    setOpen(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="exp-amount">Amount</Label>
-            <div className="relative">
-              <IndianRupee className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="exp-amount"
-                type="number"
-                min={1}
-                step="1"
-                inputMode="numeric"
-                placeholder="0"
-                className="pl-8"
-                value={form.amount}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, amount: e.target.value }))
-                }
-                autoFocus
-                aria-invalid={!amountValid && form.amount !== ""}
-              />
-            </div>
-            {!amountValid && form.amount !== "" ? (
-              <p className="text-xs text-destructive">
-                Enter an amount greater than zero.
-              </p>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="exp-category">Category</Label>
-              <Select
-                value={form.category}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, category: v as ExpenseCategory }))
-                }
-              >
-                <SelectTrigger id="exp-category" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="exp-date">Date</Label>
-              <Input
-                id="exp-date"
-                type="date"
-                value={form.date}
-                max={todayISO()}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, date: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="exp-desc">Description</Label>
-            <Textarea
-              id="exp-desc"
-              placeholder="Optional note about this expense..."
-              rows={2}
-              value={form.description}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.target.value }))
-              }
-            />
-          </div>
-
-          <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={!amountValid}>
-              {submitLabel}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ------------------------------ skeleton --------------------------------
-
-function ExpensesSkeleton() {
-  return (
-    <div className="space-y-6">
-      <Skeleton className="h-14 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton
-            key={i}
-            className="h-28 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm"
-          />
-        ))}
-      </div>
-      <Skeleton className="h-10 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
-        <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
-      </div>
-      <Skeleton className="h-72 w-full border-2 border-[var(--pixel-line)] pixel-shadow-sm" />
-    </div>
-  );
-}
-
-// ------------------------------ main view -------------------------------
+type SortKey = "newest" | "oldest" | "amount_high" | "amount_low";
 
 export function ExpensesView() {
   const hydrated = useHydrated();
-  const { expenses, addExpense, updateExpense, deleteExpense } =
-    useExpenseStore();
+  const expenses = useExpenseStore((s) => s.expenses);
 
-  const [search, setSearch] = React.useState("");
-  const [categoryFilter, setCategoryFilter] =
-    React.useState<CategoryFilter>("all");
-  const [timeFilter, setTimeFilter] = React.useState<TimeFilter>("month");
-  const [sortKey, setSortKey] = React.useState<SortKey>("newest");
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("month");
+  const [showSettled, setShowSettled] = useState(true);
+  const [sort, setSort] = useState<SortKey>("newest");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+
+  const summary = useMemo(
+    () => summarizeMoney(expenses),
+    [expenses]
+  );
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    const today = new Date();
+    const weekStart = new Date();
+    weekStart.setDate(today.getDate() - 7);
+    let list = expenses.filter((e) => {
+      if (timeFilter === "month" && !isSameMonth(e.date, now)) return false;
+      if (timeFilter === "week") {
+        const d = new Date(e.date + "T00:00:00");
+        if (d < weekStart || d > today) return false;
+      }
+      if (kindFilter !== "all" && e.kind !== kindFilter) return false;
+      if (!showSettled && e.settled) return false;
+      const q = search.trim().toLowerCase();
+      if (q) {
+        const hay = `${e.description} ${e.counterparty ?? ""} ${e.category}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      if (sort === "newest") return b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt);
+      if (sort === "oldest") return a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt);
+      if (sort === "amount_high") return b.amount - a.amount;
+      return a.amount - b.amount;
+    });
+    return list;
+  }, [expenses, timeFilter, kindFilter, showSettled, search, sort]);
+
+  // Expense-by-category breakdown (expenses only, current filter window).
+  const categoryRows = useMemo(() => {
+    const totals = new Map<ExpenseCategory, number>();
+    for (const e of filtered) {
+      if (e.kind !== "expense") continue;
+      totals.set(
+        e.category as ExpenseCategory,
+        (totals.get(e.category as ExpenseCategory) ?? 0) + e.amount
+      );
+    }
+    return [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => ({
+        category: cat,
+        amount: amt,
+        fill: EXPENSE_CATEGORY_META[cat].color,
+      }));
+  }, [filtered]);
+
+  const chartConfig: ChartConfig = useMemo(() => {
+    const c: ChartConfig = {};
+    for (const row of categoryRows) {
+      c[row.category] = {
+        label: row.category,
+        color: EXPENSE_CATEGORY_META[row.category].color,
+      };
+    }
+    return c;
+  }, [categoryRows]);
 
   if (!hydrated) return <ExpensesSkeleton />;
 
-  // --- filter + sort the visible set ---
-  const q = search.trim().toLowerCase();
-  const filtered = expenses.filter((e) => {
-    if (!matchesTimeFilter(e.date, timeFilter)) return false;
-    if (categoryFilter !== "all" && e.category !== categoryFilter) return false;
-    if (q && !e.description.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  const sorted = sortExpenses(filtered, sortKey);
-
-  // --- totals ---
-  const filteredTotal = filtered.reduce((s, e) => s + e.amount, 0);
-  const monthExpenses = expenses.filter((e) => isSameMonth(e.date));
-  const monthTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const allTimeTotal = expenses.reduce((s, e) => s + e.amount, 0);
-
-  // --- per-category breakdown for current filter set ---
-  const byCategory = new Map<ExpenseCategory, number>();
-  for (const e of filtered) {
-    byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amount);
-  }
-  const breakdown = [...byCategory.entries()]
-    .map(([cat, value]) => ({ cat, value }))
-    .sort((a, b) => b.value - a.value);
-
-  // --- top category this month (for stat card) ---
-  const monthByCategory = new Map<ExpenseCategory, number>();
-  for (const e of monthExpenses) {
-    monthByCategory.set(
-      e.category,
-      (monthByCategory.get(e.category) ?? 0) + e.amount
-    );
-  }
-  const topMonthEntry = [...monthByCategory.entries()].sort(
-    (a, b) => b[1] - a[1]
-  )[0];
-
-  // --- chart data + config (only categories present in filtered set) ---
-  const chartData = breakdown.map(({ cat, value }) => ({
-    name: cat,
-    value,
-    fill: EXPENSE_CATEGORY_META[cat].color,
-  }));
-  const chartConfig = {
-    ...Object.fromEntries(
-      breakdown.map(({ cat }) => [
-        cat,
-        {
-          label: cat,
-          color: EXPENSE_CATEGORY_META[cat].color,
-        },
-      ])
-    ),
-  } satisfies ChartConfig;
-
-  const addTrigger = (
-    <ExpenseFormDialog
-      trigger={
-        <Button>
-          <Plus />
-          Add Expense
-        </Button>
-      }
-      title="Add Expense"
-      description="Log a new spending entry."
-      submitLabel="Add Expense"
-      onSubmit={(input) => {
-        addExpense(input);
-        toast.success("Expense added");
-      }}
-    />
-  );
+  const openAdd = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+  const openEdit = (e: Expense) => {
+    setEditing(e);
+    setDialogOpen(true);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <ModuleHeader
         icon={<Wallet className="h-5 w-5" />}
-        title="Expenses"
-        description="Track where your money goes"
-        actions={addTrigger}
+        title="Money"
+        description="Track spending, income, and who owes whom."
+        actions={
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" /> Add transaction
+          </Button>
+        }
       />
 
-      {/* Stat row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* Balance / debt stat cards */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          icon={<Wallet className="h-4 w-4" />}
-          label={`This Month — ${monthLabel()}`}
-          value={formatINR(monthTotal)}
-          sub={`${monthExpenses.length} transaction${
-            monthExpenses.length === 1 ? "" : "s"
-          }`}
-          tone="primary"
-          display
+          icon={<Scale className="h-4 w-4" />}
+          label="Balance"
+          value={formatINR(summary.balance)}
+          tone={summary.balance >= 0 ? "primary" : "rose"}
+          sub="income − expense"
         />
         <StatCard
-          icon={<IndianRupee className="h-4 w-4" />}
-          label="All-time"
-          value={formatINR(allTimeTotal)}
-          sub={`${expenses.length} transaction${
-            expenses.length === 1 ? "" : "s"
-          }`}
+          icon={<ArrowUpRight className="h-4 w-4" />}
+          label="Income"
+          value={formatINR(summary.incomeTotal)}
           tone="teal"
           display
+          sub="received"
         />
         <StatCard
-          icon={<Receipt className="h-4 w-4" />}
-          label="Transactions"
-          value={filtered.length}
-          sub={
-            timeFilter === "all"
-              ? "All time view"
-              : timeFilter === "month"
-              ? "This month view"
-              : "This week view"
-          }
+          icon={<HandCoins className="h-4 w-4" />}
+          label="You owe"
+          value={formatINR(summary.youOwe)}
+          tone="amber"
+          display
+          sub={summary.youOwe === 0 ? "all settled" : "unsettled borrows"}
+        />
+        <StatCard
+          icon={<Banknote className="h-4 w-4" />}
+          label="Owed to you"
+          value={formatINR(summary.owedToYou)}
           tone="violet"
           display
-        />
-        <StatCard
-          icon={<TrendingDown className="h-4 w-4" />}
-          label="Top Category"
-          value={topMonthEntry ? topMonthEntry[0] : "—"}
-          sub={
-            topMonthEntry
-              ? `${formatINR(topMonthEntry[1])} this month`
-              : "No spend yet"
-          }
-          tone="amber"
+          sub={summary.owedToYou === 0 ? "nothing due" : "unsettled lends"}
         />
       </div>
 
-      {/* Controls bar */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by description..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search expenses"
-          />
-        </div>
-        <Select
-          value={categoryFilter}
-          onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filter by category">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {EXPENSE_CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={timeFilter}
-          onValueChange={(v) => setTimeFilter(v as TimeFilter)}
-        >
-          <SelectTrigger className="w-full sm:w-[150px]" aria-label="Filter by time">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={sortKey}
-          onValueChange={(v) => setSortKey(v as SortKey)}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]" aria-label="Sort expenses">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest first</SelectItem>
-            <SelectItem value="oldest">Oldest first</SelectItem>
-            <SelectItem value="amount-desc">Amount: High → Low</SelectItem>
-            <SelectItem value="amount-asc">Amount: Low → High</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Receipt className="h-5 w-5" />}
-          title="No expenses match"
-          description="Try adjusting your filters, or add a new expense to get started."
-          action={addTrigger}
-        />
-      ) : (
-        <>
-          {/* Chart + Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <PieChartIcon className="size-4 text-muted-foreground" />
-                  Spending by Category
-                </CardTitle>
-                <CardDescription>
-                  {formatINR(filteredTotal)} across {breakdown.length} categor
-                  {breakdown.length === 1 ? "y" : "ies"} in this view.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {filteredTotal > 0 ? (
-                  <div className="relative">
-                    <ChartContainer
-                      config={chartConfig}
-                      className="mx-auto aspect-square max-h-[240px] w-full"
-                    >
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          dataKey="value"
-                          nameKey="name"
-                          innerRadius={62}
-                          outerRadius={88}
-                          paddingAngle={2}
-                          cornerRadius={0}
-                          strokeWidth={0}
-                        >
-                          {chartData.map((d) => (
-                            <Cell key={d.name} fill={d.fill} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip
-                          cursor={false}
-                          content={
-                            <ChartTooltipContent
-                              nameKey="name"
-                              formatter={(value, name) => (
-                                <>
-                                  <span className="text-muted-foreground">
-                                    {name}
-                                  </span>
-                                  <span className="ml-auto font-mono font-medium tabular-nums">
-                                    {formatINR(Number(value))}
-                                  </span>
-                                </>
-                              )}
-                            />
-                          }
-                        />
-                      </PieChart>
-                    </ChartContainer>
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        Total
-                      </span>
-                      <span className="font-display text-base leading-none tabular-nums">
-                        {formatINRCompact(filteredTotal)}
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
-                    No data for this view.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <BarChart3 className="size-4 text-muted-foreground" />
-                  Breakdown
-                </CardTitle>
-                <CardDescription>
-                  Per-category spend, sorted high to low.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3.5">
-                  {breakdown.map(({ cat, value }) => {
-                    const meta = EXPENSE_CATEGORY_META[cat];
-                    const pct =
-                      filteredTotal > 0 ? (value / filteredTotal) * 100 : 0;
-                    return (
-                      <li key={cat} className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span
-                              className="inline-block h-3 w-3 shrink-0 border-2 border-[var(--pixel-line)]"
-                              style={{ backgroundColor: meta.color }}
-                              aria-hidden
-                            />
-                            <span className="font-medium">{cat}</span>
-                          </div>
-                          <div className="flex items-center gap-2 tabular-nums">
-                            <span className="font-medium">
-                              {formatINR(value)}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {pct.toFixed(0)}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-2.5 w-full border-2 border-[var(--pixel-line)] bg-muted">
-                          <div
-                            className="h-full transition-all"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: meta.color,
-                            }}
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
-            </Card>
+      {/* Controls */}
+      <Card>
+        <CardContent className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="relative sm:col-span-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search description, friend, category…"
+              className="pl-9"
+              aria-label="Search transactions"
+            />
           </div>
+          <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as KindFilter)}>
+            <SelectTrigger aria-label="Filter by kind">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All kinds</SelectItem>
+              <SelectItem value="expense">Expenses</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="borrow">Borrowed</SelectItem>
+              <SelectItem value="lend">Lent</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as TimeFilter)}>
+            <SelectTrigger aria-label="Filter by time">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">This month</SelectItem>
+              <SelectItem value="week">This week</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+            <SelectTrigger aria-label="Sort transactions">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="amount_high">Amount: high → low</SelectItem>
+              <SelectItem value="amount_low">Amount: low → high</SelectItem>
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-2 text-xs font-semibold lg:col-span-5">
+            <Checkbox
+              checked={showSettled}
+              onCheckedChange={(v) => setShowSettled(v === true)}
+              aria-label="Show settled debts"
+            />
+            Show settled debts
+          </label>
+        </CardContent>
+      </Card>
 
-          {/* History */}
+      {/* Breakdown chart (expenses only) */}
+      {categoryRows.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
               <CardTitle className="flex items-center gap-2 text-base">
-                <CalendarDays className="size-4 text-muted-foreground" />
-                History
+                <Wallet className="h-4 w-4 text-primary" />
+                Expenses by category
               </CardTitle>
-              <CardDescription>
-                {sorted.length} transaction{sorted.length === 1 ? "" : "s"} in
-                this view — totalling {formatINR(filteredTotal)}.
-              </CardDescription>
+              <Badge variant="outline" className="font-mono">
+                {formatINR(categoryRows.reduce((s, r) => s + r.amount, 0))}
+              </Badge>
             </CardHeader>
-            <CardContent className="px-0 sm:px-6">
-              {/* Desktop: table */}
-              <div className="hidden sm:block">
-                <Table className="[&_td]:border-2 [&_td]:border-[var(--pixel-line)]/30 [&_th]:border-2 [&_th]:border-[var(--pixel-line)]/30">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">Date</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="pr-6 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sorted.map((e) => {
-                      const meta = EXPENSE_CATEGORY_META[e.category];
-                      return (
-                        <TableRow key={e.id}>
-                          <TableCell className="pl-6 text-muted-foreground">
-                            {formatDate(e.date)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="gap-1.5">
-                              <span
-                                className="inline-block size-2 border-2 border-[var(--pixel-line)]"
-                                style={{ backgroundColor: meta.color }}
-                                aria-hidden
-                              />
-                              {e.category}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[320px] truncate">
-                            {e.description ? (
-                              e.description
-                            ) : (
-                              <span className="italic text-muted-foreground">
-                                No description
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-bold tabular-nums">
-                            {formatINR(e.amount)}
-                          </TableCell>
-                          <TableCell className="pr-6">
-                            <div className="flex justify-end gap-1">
-                              <ExpenseFormDialog
-                                trigger={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
-                                    aria-label={`Edit ${e.category} expense of ${formatINR(
-                                      e.amount
-                                    )}`}
-                                  >
-                                    <Pencil />
-                                  </Button>
-                                }
-                                initial={e}
-                                title="Edit Expense"
-                                description="Update this expense entry."
-                                submitLabel="Save Changes"
-                                onSubmit={(input) => {
-                                  updateExpense(e.id, input);
-                                  toast.success("Expense updated");
-                                }}
-                              />
-                              <ConfirmDialog
-                                trigger={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
-                                    aria-label={`Delete ${e.category} expense of ${formatINR(
-                                      e.amount
-                                    )}`}
-                                  >
-                                    <Trash2 />
-                                  </Button>
-                                }
-                                title="Delete this expense?"
-                                description={`This permanently removes the ${e.category} expense of ${formatINR(
-                                  e.amount
-                                )} from ${formatDate(e.date)}.`}
-                                confirmLabel="Delete"
-                                onConfirm={() => {
-                                  deleteExpense(e.id);
-                                  toast.success("Expense deleted");
-                                }}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile: card list */}
-              <ul className="space-y-2 px-4 sm:hidden">
-                {sorted.map((e) => {
-                  const meta = EXPENSE_CATEGORY_META[e.category];
-                  return (
-                    <li
-                      key={e.id}
-                      className="flex items-start gap-3 border-2 border-[var(--pixel-line)] p-3"
-                    >
-                      <span
-                        className="mt-1.5 inline-block h-3 w-3 shrink-0 border-2 border-[var(--pixel-line)]"
-                        style={{ backgroundColor: meta.color }}
-                        aria-hidden
+            <CardContent className="pt-4">
+              <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square max-h-[220px]"
+              >
+                <PieChart>
+                  <Pie
+                    data={categoryRows}
+                    dataKey="amount"
+                    nameKey="category"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    strokeWidth={0}
+                  >
+                    {categoryRows.map((row) => (
+                      <Cell key={row.category} fill={row.fill} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(v) => formatINR(Number(v))}
+                        hideLabel
                       />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium">
-                            {e.category}
+                    }
+                  />
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <IndianRupee className="h-4 w-4 text-primary" />
+                Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 pt-4">
+              <ul className="space-y-2">
+                {categoryRows.map((row) => {
+                  const total = categoryRows.reduce((s, r) => s + r.amount, 0);
+                  const pct = total > 0 ? Math.round((row.amount / total) * 100) : 0;
+                  return (
+                    <li key={row.category} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 border-2 border-[var(--pixel-line)]"
+                            style={{ backgroundColor: row.fill }}
+                          />
+                          <span className="text-muted-foreground">
+                            {EXPENSE_CATEGORY_META[row.category].label}
                           </span>
-                          <span className="text-sm font-bold tabular-nums">
-                            {formatINR(e.amount)}
+                        </span>
+                        <span className="font-semibold tabular-nums">
+                          {formatINR(row.amount)}
+                          <span className="ml-1.5 text-xs text-muted-foreground">
+                            {pct}%
                           </span>
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {e.description || "No description"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(e.date)}
-                        </p>
+                        </span>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <ExpenseFormDialog
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
-                              aria-label={`Edit ${e.category} expense`}
-                            >
-                              <Pencil />
-                            </Button>
-                          }
-                          initial={e}
-                          title="Edit Expense"
-                          description="Update this expense entry."
-                          submitLabel="Save Changes"
-                          onSubmit={(input) => {
-                            updateExpense(e.id, input);
-                            toast.success("Expense updated");
-                          }}
-                        />
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
-                              aria-label={`Delete ${e.category} expense`}
-                            >
-                              <Trash2 />
-                            </Button>
-                          }
-                          title="Delete this expense?"
-                          description={`This permanently removes the ${e.category} expense of ${formatINR(
-                            e.amount
-                          )}.`}
-                          confirmLabel="Delete"
-                          onConfirm={() => {
-                            deleteExpense(e.id);
-                            toast.success("Expense deleted");
+                      <div className="h-2 border-2 border-[var(--pixel-line)] bg-muted">
+                        <div
+                          className="h-full"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: row.fill,
                           }}
                         />
                       </div>
@@ -855,8 +380,474 @@ export function ExpensesView() {
               </ul>
             </CardContent>
           </Card>
-        </>
-      )}
+        </div>
+      ) : null}
+
+      {/* Transaction history */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between border-b-2 border-[var(--pixel-line)]">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Receipt /> History
+          </CardTitle>
+          <Badge variant="outline" className="font-mono">
+            {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<Wallet className="h-5 w-5" />}
+                title="No transactions match"
+                description="Adjust the filters or add a new transaction."
+                action={
+                  <Button onClick={openAdd}>
+                    <Plus className="h-4 w-4" /> Add transaction
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="[&_th]:border-2 [&_th]:border-[var(--pixel-line)]/30">
+                      <TableHead>Date</TableHead>
+                      <TableHead>Kind</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((t) => (
+                      <TableRow key={t.id} className="[&_td]:border-2 [&_td]:border-[var(--pixel-line)]/20">
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {formatDate(t.date)}
+                        </TableCell>
+                        <TableCell>
+                          <KindBadge kind={t.kind} settled={t.settled} />
+                        </TableCell>
+                        <TableCell>
+                          <div className="truncate text-sm font-semibold">
+                            {t.description || "—"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t.counterparty ? `with ${t.counterparty} · ` : ""}
+                            {t.category}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "text-right font-bold tabular-nums",
+                            t.kind === "expense" && "text-destructive",
+                            t.kind === "income" && "text-primary"
+                          )}
+                        >
+                          {t.kind === "expense" ? "−" : t.kind === "income" ? "+" : ""}
+                          {formatINR(t.amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <RowActions tx={t} onEdit={() => openEdit(t)} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {/* Mobile cards */}
+              <ul className="divide-y-2 divide-[var(--pixel-line)]/30 sm:hidden">
+                {filtered.map((t) => (
+                  <li key={t.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <KindBadge kind={t.kind} settled={t.settled} />
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(t.date)}
+                          </span>
+                        </div>
+                        <div className="mt-1 truncate text-sm font-semibold">
+                          {t.description || "—"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {t.counterparty ? `with ${t.counterparty} · ` : ""}
+                          {t.category}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={cn(
+                            "font-bold tabular-nums",
+                            t.kind === "expense" && "text-destructive",
+                            t.kind === "income" && "text-primary"
+                          )}
+                        >
+                          {t.kind === "expense" ? "−" : t.kind === "income" ? "+" : ""}
+                          {formatINR(t.amount)}
+                        </div>
+                        <div className="mt-1">
+                          <RowActions tx={t} onEdit={() => openEdit(t)} />
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <TransactionDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={editing}
+      />
+    </div>
+  );
+}
+
+/* --------------------------- Kind badge ----------------------------- */
+
+function KindBadge({ kind, settled }: { kind: TransactionKind; settled?: boolean }) {
+  const meta = TRANSACTION_KIND_META[kind];
+  return (
+    <Badge variant="outline" className={cn("gap-1", meta.badge)}>
+      {KIND_ICONS[meta.icon]}
+      {meta.label}
+      {settled ? " · settled" : ""}
+    </Badge>
+  );
+}
+
+function Receipt({ className }: { className?: string }) {
+  return <Wallet className={cn("h-4 w-4 text-primary", className)} />;
+}
+
+/* --------------------------- Row actions ---------------------------- */
+
+function RowActions({ tx, onEdit }: { tx: Expense; onEdit: () => void }) {
+  const deleteExpense = useExpenseStore((s) => s.deleteExpense);
+  const settle = useExpenseStore((s) => s.settleTransaction);
+  const unsettle = useExpenseStore((s) => s.unsettleTransaction);
+  const isDebt = tx.kind === "borrow" || tx.kind === "lend";
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      {isDebt ? (
+        tx.settled ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 border-2 border-transparent px-2 hover:border-[var(--pixel-line)] hover:bg-muted"
+            onClick={() => {
+              unsettle(tx.id);
+              toast.success("Debt reopened");
+            }}
+            aria-label="Reopen debt"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Reopen
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 border-2 border-transparent px-2 text-primary hover:border-[var(--pixel-line)] hover:bg-muted"
+            onClick={() => {
+              settle(tx.id);
+              toast.success("Marked as settled", {
+                description: `${tx.counterparty ?? ""} ${formatINR(tx.amount)}`.trim(),
+              });
+            }}
+            aria-label="Mark debt settled"
+          >
+            <Check className="h-3.5 w-3.5" /> Settle
+          </Button>
+        )
+      ) : null}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted"
+        onClick={onEdit}
+        aria-label="Edit transaction"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 border-2 border-transparent hover:border-[var(--pixel-line)] hover:bg-muted hover:text-destructive"
+            aria-label="Delete transaction"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        }
+        title="Delete this transaction?"
+        description="This cannot be undone."
+        onConfirm={() => {
+          deleteExpense(tx.id);
+          toast.success("Transaction deleted");
+        }}
+      />
+    </div>
+  );
+}
+
+/* ----------------------- Add / edit dialog -------------------------- */
+
+function TransactionDialog({
+  open,
+  onOpenChange,
+  editing,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  editing: Expense | null;
+}) {
+  const addExpense = useExpenseStore((s) => s.addExpense);
+  const updateExpense = useExpenseStore((s) => s.updateExpense);
+
+  const [kind, setKind] = useState<TransactionKind>("expense");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState<string>("Food");
+  const [description, setDescription] = useState("");
+  const [counterparty, setCounterparty] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setKind(editing.kind);
+      setAmount(String(editing.amount));
+      setCategory(editing.category);
+      setDescription(editing.description);
+      setCounterparty(editing.counterparty ?? "");
+      setDate(editing.date);
+    } else {
+      setKind("expense");
+      setAmount("");
+      setCategory("Food");
+      setDescription("");
+      setCounterparty("");
+      setDate(new Date().toISOString().slice(0, 10));
+    }
+    setError(null);
+  }, [open, editing]);
+
+  // category options depend on kind
+  const categoryOptions: readonly string[] =
+    kind === "income" ? INCOME_CATEGORIES : kind === "expense" ? EXPENSE_CATEGORIES : ["Transfer"];
+  const needsCounterparty = kind === "borrow" || kind === "lend";
+
+  React.useEffect(() => {
+    // keep category valid when kind changes
+    if (!categoryOptions.includes(category)) {
+      setCategory(categoryOptions[0]);
+    }
+  }, [kind, category, categoryOptions]);
+
+  const submit = () => {
+    const amt = Number(amount);
+    if (!amount || isNaN(amt) || amt <= 0)
+      return setError("Enter an amount greater than ₹0.");
+    if (needsCounterparty && !counterparty.trim())
+      return setError("Add the friend's name for borrow/lend.");
+    if (!date) return setError("Pick a date.");
+
+    const input: ExpenseInput = {
+      kind,
+      amount: amt,
+      category: category as TransactionCategory,
+      description: description.trim(),
+      date,
+      counterparty: needsCounterparty ? counterparty.trim() : undefined,
+      settled: editing?.settled ?? false,
+    };
+    if (editing) {
+      updateExpense(editing.id, input);
+      toast.success("Transaction updated");
+    } else {
+      addExpense(input);
+      toast.success(TRANSACTION_KIND_META[kind].label + " added", {
+        description: `${formatINR(amt)}${needsCounterparty ? " · " + counterparty.trim() : ""}`,
+      });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base">
+            {editing ? "Edit transaction" : "Add transaction"}
+          </DialogTitle>
+          <DialogDescription>
+            Track an expense, income, or money borrowed / lent to a friend.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          {/* Kind selector */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider">
+              Type
+            </Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {TRANSACTION_KINDS.map((k) => {
+                const meta = TRANSACTION_KIND_META[k];
+                const active = kind === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setKind(k)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex flex-col items-center gap-1 border-2 p-2 text-xs font-semibold transition-all",
+                      active
+                        ? "border-[var(--pixel-line)] bg-primary text-primary-foreground pixel-inset"
+                        : "border-[var(--pixel-line)] bg-card hover:bg-muted"
+                    )}
+                  >
+                    {KIND_ICONS[meta.icon]}
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="tx-amount" className="text-xs font-semibold uppercase tracking-wider">
+                Amount (₹) *
+              </Label>
+              <Input
+                id="tx-amount"
+                type="number"
+                min={1}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tx-date" className="text-xs font-semibold uppercase tracking-wider">
+                Date
+              </Label>
+              <Input
+                id="tx-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+          </div>
+
+          {needsCounterparty ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="tx-friend" className="text-xs font-semibold uppercase tracking-wider">
+                Friend's name *
+              </Label>
+              <Input
+                id="tx-friend"
+                value={counterparty}
+                onChange={(e) => setCounterparty(e.target.value)}
+                placeholder="e.g. Rahul"
+                maxLength={40}
+              />
+            </div>
+          ) : null}
+
+          {!needsCounterparty ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="tx-category" className="text-xs font-semibold uppercase tracking-wider">
+                Category
+              </Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="tx-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="tx-desc" className="text-xs font-semibold uppercase tracking-wider">
+              Description
+            </Label>
+            <Textarea
+              id="tx-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={
+                kind === "borrow"
+                  ? "What did you borrow for?"
+                  : kind === "lend"
+                    ? "What did you lend for?"
+                    : "Optional note"
+              }
+              rows={2}
+              maxLength={120}
+            />
+          </div>
+
+          {error ? (
+            <p role="alert" className="text-xs font-semibold text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={submit}>
+            {editing ? "Save" : "Add"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ----------------------------- Skeleton ----------------------------- */
+
+function ExpensesSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-12 w-48 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-28 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm"
+          />
+        ))}
+      </div>
+      <div className="h-20 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow-sm" />
+      <div className="h-72 animate-pulse border-2 border-[var(--pixel-line)] bg-muted pixel-shadow" />
     </div>
   );
 }

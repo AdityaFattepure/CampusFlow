@@ -53,6 +53,7 @@ import {
   isSameMonth,
   planStats,
   relativeDay,
+  summarizeMoney,
   todayISO,
   daysFromTodayISO,
 } from "@/lib/format";
@@ -114,11 +115,13 @@ export function DashboardView({
       (t) => t.dueDate && t.dueDate < today
     ).length;
 
-    const monthExpenses = expenses.filter((e) => isSameMonth(e.date));
+    const monthExpenses = expenses.filter(
+      (e) => isSameMonth(e.date) && e.kind === "expense"
+    );
     const monthTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
     const catTotals = new Map<ExpenseCategory, number>();
     for (const e of monthExpenses) {
-      catTotals.set(e.category, (catTotals.get(e.category) ?? 0) + e.amount);
+      catTotals.set(e.category as ExpenseCategory, (catTotals.get(e.category as ExpenseCategory) ?? 0) + e.amount);
     }
     const catRows = [...catTotals.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -127,6 +130,11 @@ export function DashboardView({
         amount: amt,
         fill: EXPENSE_CATEGORY_META[cat].color,
       }));
+
+    const moneySummary = summarizeMoney(expenses);
+    const monthIncome = expenses
+      .filter((e) => isSameMonth(e.date) && e.kind === "income")
+      .reduce((s, e) => s + e.amount, 0);
 
     const activeGoals = goals.filter((g) => {
       const p = planStats(g);
@@ -202,6 +210,8 @@ export function DashboardView({
       isEmpty,
       studyMinutesToday,
       studyBehindCount,
+      moneySummary,
+      monthIncome,
     };
   }, [tasks, expenses, goals, notes]);
 
@@ -399,10 +409,10 @@ export function DashboardView({
         >
           <StatCard
             icon={<Wallet className="h-4 w-4" />}
-            label="Spent / month"
-            value={formatINR(stats.monthTotal)}
-            tone="primary"
-            sub={`${stats.catRows.length} categories`}
+            label="Balance"
+            value={formatINR(stats.moneySummary.balance)}
+            tone={stats.moneySummary.balance >= 0 ? "primary" : "rose"}
+            sub={`spent ${formatINR(stats.monthTotal)} · in ${formatINR(stats.monthIncome)}`}
             className="h-full"
           />
         </button>
@@ -541,6 +551,37 @@ export function DashboardView({
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="border-2 border-[var(--pixel-line)] bg-muted/40 p-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Balance
+                </div>
+                <div
+                  className={cn(
+                    "font-display text-sm",
+                    stats.moneySummary.balance >= 0 ? "text-primary" : "text-destructive"
+                  )}
+                >
+                  {formatINR(stats.moneySummary.balance)}
+                </div>
+              </div>
+              <div className="border-2 border-[var(--pixel-line)] bg-muted/40 p-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  You owe
+                </div>
+                <div className="font-display text-sm text-amber-600 dark:text-amber-300">
+                  {formatINR(stats.moneySummary.youOwe)}
+                </div>
+              </div>
+              <div className="border-2 border-[var(--pixel-line)] bg-muted/40 p-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Owed to you
+                </div>
+                <div className="font-display text-sm text-violet-600 dark:text-violet-300">
+                  {formatINR(stats.moneySummary.owedToYou)}
+                </div>
+              </div>
+            </div>
             {stats.catRows.length === 0 ? (
               <EmptyState
                 icon={<Wallet className="h-5 w-5" />}

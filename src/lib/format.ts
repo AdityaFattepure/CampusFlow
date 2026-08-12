@@ -1,9 +1,12 @@
 import type {
   ExpenseCategory,
+  IncomeCategory,
   NoteCategory,
   Priority,
   StudyGoal,
   TaskCategory,
+  TransactionKind,
+  Expense,
 } from "./types";
 
 /** Generate a reasonably-unique id (crypto.randomUUID with fallback). */
@@ -148,6 +151,104 @@ export const TASK_CATEGORY_STYLES: Record<TaskCategory, string> = {
     "bg-teal-500/12 text-teal-600 dark:text-teal-300 border-teal-500/25",
   Other: "bg-muted text-muted-foreground border-border",
 };
+
+// ---------------------------------------------------------------------
+// Money transaction helpers.
+// A transaction is one of: expense, income, borrow (you owe a friend),
+// or lend (a friend owes you). Borrow/lend carry a counterparty + settled flag.
+// ---------------------------------------------------------------------
+
+export interface TransactionKindMeta {
+  label: string;
+  /** Tailwind classes for a tinted badge. */
+  badge: string;
+  /** Sign used when summing into a balance: +income, -expense, etc. */
+  sign: 1 | -1 | 0;
+  /** Short icon-ish label (emoji-free; components map to lucide icons). */
+  icon: "arrow-down-left" | "arrow-up-right" | "hand-coins" | "banknote";
+}
+
+export const TRANSACTION_KIND_META: Record<TransactionKind, TransactionKindMeta> = {
+  expense: {
+    label: "Expense",
+    badge:
+      "bg-rose-500/12 text-rose-600 dark:text-rose-300 border-rose-500/25",
+    sign: -1,
+    icon: "arrow-down-left",
+  },
+  income: {
+    label: "Income",
+    badge:
+      "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300 border-emerald-500/25",
+    sign: 1,
+    icon: "arrow-up-right",
+  },
+  borrow: {
+    label: "Borrowed",
+    badge:
+      "bg-amber-500/12 text-amber-600 dark:text-amber-300 border-amber-500/25",
+    sign: 0, // doesn't affect cash balance (it's a debt you owe)
+    icon: "hand-coins",
+  },
+  lend: {
+    label: "Lent",
+    badge:
+      "bg-violet-500/12 text-violet-600 dark:text-violet-300 border-violet-500/25",
+    sign: 0, // doesn't affect cash balance (it's owed to you)
+    icon: "banknote",
+  },
+};
+
+export const INCOME_CATEGORY_STYLES: Record<IncomeCategory, string> = {
+  "Pocket Money":
+    "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300 border-emerald-500/25",
+  Stipend:
+    "bg-teal-500/12 text-teal-600 dark:text-teal-300 border-teal-500/25",
+  Refund:
+    "bg-amber-500/12 text-amber-600 dark:text-amber-300 border-amber-500/25",
+  Gift:
+    "bg-violet-500/12 text-violet-600 dark:text-violet-300 border-violet-500/25",
+  Other: "bg-muted text-muted-foreground border-border",
+};
+
+export interface MoneySummary {
+  /** income - expense (settled debts don't count; unsettled borrow/lend are
+   * tracked separately as youOwe / owedToYou). */
+  balance: number;
+  incomeTotal: number;
+  expenseTotal: number;
+  /** money you still owe friends (unsettled borrow). */
+  youOwe: number;
+  /** money friends still owe you (unsettled lend). */
+  owedToYou: number;
+  /** net debt = youOwe - owedToYou (>0 means you're net in debt). */
+  netDebt: number;
+}
+
+export function summarizeMoney(
+  transactions: Expense[],
+  filter?: (t: Expense) => boolean
+): MoneySummary {
+  const tx = filter ? transactions.filter(filter) : transactions;
+  let incomeTotal = 0;
+  let expenseTotal = 0;
+  let youOwe = 0;
+  let owedToYou = 0;
+  for (const t of tx) {
+    if (t.kind === "income") incomeTotal += t.amount;
+    else if (t.kind === "expense") expenseTotal += t.amount;
+    else if (t.kind === "borrow" && !t.settled) youOwe += t.amount;
+    else if (t.kind === "lend" && !t.settled) owedToYou += t.amount;
+  }
+  return {
+    balance: incomeTotal - expenseTotal,
+    incomeTotal,
+    expenseTotal,
+    youOwe,
+    owedToYou,
+    netDebt: youOwe - owedToYou,
+  };
+}
 
 // ---------------------------------------------------------------------
 // Study-plan helpers. A StudyGoal is a timed commitment: learn <subject>

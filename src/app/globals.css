@@ -94,42 +94,43 @@
 }
 
 .dark {
-  /* Night — warm charcoal canvas, cream lines, glowing sage. */
-  --background: oklch(0.18 0.012 80);
-  --foreground: oklch(0.93 0.012 85);
-  --card: oklch(0.225 0.012 80);
-  --card-foreground: oklch(0.93 0.012 85);
-  --popover: oklch(0.225 0.012 80);
-  --popover-foreground: oklch(0.93 0.012 85);
-  --primary: oklch(0.74 0.14 152);
-  --primary-foreground: oklch(0.16 0.02 80);
-  --secondary: oklch(0.27 0.012 80);
-  --secondary-foreground: oklch(0.93 0.012 85);
-  --muted: oklch(0.26 0.012 80);
-  --muted-foreground: oklch(0.68 0.012 82);
-  --accent: oklch(0.78 0.14 75);
-  --accent-foreground: oklch(0.16 0.02 80);
-  --destructive: oklch(0.7 0.19 25);
-  --border: oklch(0.32 0.012 80);
-  --input: oklch(0.3 0.012 80);
-  --ring: oklch(0.74 0.14 152);
-  --chart-1: oklch(0.74 0.14 152);
-  --chart-2: oklch(0.78 0.14 75);
-  --chart-3: oklch(0.7 0.19 25);
-  --chart-4: oklch(0.74 0.1 185);
-  --chart-5: oklch(0.7 0.13 300);
-  --sidebar: oklch(0.2 0.012 80);
-  --sidebar-foreground: oklch(0.93 0.012 85);
-  --sidebar-primary: oklch(0.74 0.14 152);
-  --sidebar-primary-foreground: oklch(0.16 0.02 80);
-  --sidebar-accent: oklch(0.27 0.012 80);
-  --sidebar-accent-foreground: oklch(0.93 0.012 85);
-  --sidebar-border: oklch(0.32 0.012 80);
-  --sidebar-ring: oklch(0.74 0.14 152);
+  /* Batman Night — smooth matte black with a faint cool tint, desaturated
+     neutrals, and a single amber "bat-signal" accent. Calm, not colourful. */
+  --background: oklch(0.135 0.006 260);        /* matte near-black */
+  --foreground: oklch(0.92 0.004 250);          /* soft cool off-white */
+  --card: oklch(0.165 0.006 260);               /* charcoal card */
+  --card-foreground: oklch(0.92 0.004 250);
+  --popover: oklch(0.165 0.006 260);
+  --popover-foreground: oklch(0.92 0.004 250);
+  --primary: oklch(0.8 0.14 75);               /* amber bat-signal accent */
+  --primary-foreground: oklch(0.14 0.01 260);
+  --secondary: oklch(0.22 0.006 260);
+  --secondary-foreground: oklch(0.92 0.004 250);
+  --muted: oklch(0.2 0.006 260);
+  --muted-foreground: oklch(0.6 0.008 255);     /* muted slate grey */
+  --accent: oklch(0.32 0.02 260);               /* subtle steel for dither */
+  --accent-foreground: oklch(0.92 0.004 250);
+  --destructive: oklch(0.62 0.16 22);           /* muted rose */
+  --border: oklch(0.26 0.006 260);
+  --input: oklch(0.24 0.006 260);
+  --ring: oklch(0.8 0.14 75);
+  --chart-1: oklch(0.8 0.14 75);                /* amber */
+  --chart-2: oklch(0.66 0.08 200);              /* desaturated steel-blue */
+  --chart-3: oklch(0.62 0.14 22);               /* rose */
+  --chart-4: oklch(0.6 0.06 220);
+  --chart-5: oklch(0.55 0.05 300);
+  --sidebar: oklch(0.15 0.006 260);
+  --sidebar-foreground: oklch(0.92 0.004 250);
+  --sidebar-primary: oklch(0.8 0.14 75);
+  --sidebar-primary-foreground: oklch(0.14 0.01 260);
+  --sidebar-accent: oklch(0.22 0.006 260);
+  --sidebar-accent-foreground: oklch(0.92 0.004 250);
+  --sidebar-border: oklch(0.26 0.006 260);
+  --sidebar-ring: oklch(0.8 0.14 75);
 
-  --pixel-line: oklch(0.88 0.012 85);        /* cream outline (dark mode) */
-  --pixel-shadow: oklch(0.06 0.005 80);      /* deep black for depth */
-  --pixel-line-soft: oklch(0.6 0.012 82);
+  --pixel-line: oklch(0.34 0.008 255);          /* soft slate line (not harsh) */
+  --pixel-shadow: oklch(0.04 0.003 260);        /* near-pure black for depth */
+  --pixel-line-soft: oklch(0.24 0.006 260);
 }
 
 @layer base {
@@ -306,8 +307,15 @@
 }
 .px-cloud { animation: px-cloud linear infinite; }
 
+/* Twinkling stars (night landscape). */
+@keyframes px-twinkle {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+.px-twinkle { animation: px-twinkle 3s steps(2, jump-none) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .px-scroll-x, .px-sun-bob, .px-cloud { animation: none !important; }
+  .px-scroll-x, .px-sun-bob, .px-cloud, .px-twinkle { animation: none !important; }
 }
 
 /* ---------------------------------------------------------------------

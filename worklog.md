@@ -920,3 +920,78 @@ Stage Summary:
   landscape (sky + sun + clouds + 3 scrolling mountain layers + dithered
   ground) — the "cool loop video" effect, pure CSS/SVG, no asset weight.
 - Screenshots: v4-dashboard-animated.png, v4-study-planner.png.
+
+---
+Task ID: V5
+Agent: main (orchestrator)
+Task: (1) Turn the expense tracker into a full money manager (income, borrow,
+lend with settle logic + balances). (2) Redesign dark mode to a smooth
+matte-black Batman-night aesthetic where the hero landscape becomes a night
+scene (moon + stars + dark mountain silhouettes).
+
+Work Log:
+- Types (src/lib/types.ts): extended Expense with kind (expense|income|borrow|
+  lend), counterparty?, settled?; added TransactionKind, TRANSACTION_KINDS,
+  INCOME_CATEGORIES (Pocket Money/Stipend/Refund/Gift/Other), IncomeCategory,
+  TransactionCategory (ExpenseCategory | IncomeCategory | "Transfer").
+  ExpenseInput now omits settled (defaults to false on add).
+- format.ts: added TRANSACTION_KIND_META (label/badge/sign/icon per kind),
+  INCOME_CATEGORY_STYLES, MoneySummary interface + summarizeMoney() helper
+  computing balance (income−expense), incomeTotal, expenseTotal, youOwe
+  (unsettled borrows), owedToYou (unsettled lends), netDebt.
+- expense-store.ts: added settleTransaction(id)/unsettleTransaction(id);
+  bumped persist to v2 with migrate() that carries v1 expenses (no kind)
+  into kind:"expense" + settled:false.
+- seed-data.ts createSeedExpenses rewritten: ₹5000 Pocket Money + ₹1500 Refund
+  (income), 6 expenses, ₹300 borrow from Rahul (unsettled), ₹150 lend to Priya
+  (unsettled), ₹200 lend to Aman (settled).
+- expenses-view.tsx full rewrite → "Money" module: 4 stat cards (Balance /
+  Income / You owe / Owed to you), controls (search + kind filter All/Expenses/
+  Income/Borrowed/Lent + time filter + sort + "Show settled debts" toggle),
+  expense-by-category donut chart + breakdown (expenses only), history Table
+  (desktop) + card list (mobile) with kind badges + Settle/Reopen button for
+  debts + edit/delete, Add-transaction dialog with 4-kind selector (pixel
+  segmented) + conditional "Friend's name" field for borrow/lend.
+- Dashboard: Balance stat card (income−expense, tone primary/rose), expense
+  overview now shows a 3-cell Balance/You-owe/Owed-to-you strip above the
+  category chart; monthTotal/monthIncome computed from kind-filtered expenses.
+- Dark palette (globals.css .dark): rewritten to smooth matte-black Batman
+  night — background oklch(0.135 0.006 260) matte near-black with a faint
+  cool tint, charcoal cards (0.165), soft slate pixel-line (0.34, not harsh
+  cream), near-pure-black pixel-shadow (0.04), desaturated chart hues, amber
+  (0.8 0.14 75) kept as the single "bat-signal" accent. Calm, not colourful.
+- PixelLandscape (src/components/pixel-landscape.tsx): now theme-aware via
+  useTheme. Night mode renders a banded deep-navy→black sky, a pixel moon
+  (disc + crescent shadow cut + craters) instead of the sun, 12 twinkling
+  pixel stars (px-twinkle keyframe), dark mountain silhouettes (oklch 0.1–0.2),
+  and NO clouds. Day mode keeps the sun + clouds + green mountains. Added
+  px-twinkle keyframe + reduced-motion guard in globals.css.
+- Verification (Agent Browser):
+  * Clean reload: no errors. Load demo data → dashboard Balance ₹2,000
+    (income ₹6,500 − expense ₹4,500), You owe ₹300 (Rahul), Owed to you ₹150
+    (Priya). ✓
+  * Money module: all 4 stat cards render with correct numbers; transaction
+    table shows Expense/Income/Borrowed/Lent rows with kind badges + Settle
+    buttons on debts. ✓
+  * Settle: clicked Settle on Rahul's ₹300 borrow → "You owe" dropped to ₹0
+    ("all settled"). ✓
+  * Add borrow: opened Add transaction → selected Borrowed → "Friend's name"
+    field appeared → added ₹500 borrow "For pizza" with Aman → appears in
+    list, "You owe" updated to ₹500. ✓
+  * Dark mode night landscape: toggled dark → class="dark" → dashboard hero
+    shows moon (true), 12 stars, 0 clouds (clouds correctly hidden at night).
+    VLM 9/10: "smooth matte black, night scene with moon/stars/dark mountain
+    silhouettes, calm/Batman-night-like, retro terminal / stealth-game UI."
+  * `bun run lint` clean. No console/page errors.
+
+Stage Summary:
+- The tracker is now a complete money manager: record expenses, income
+  (pocket money, stipend, refunds), money borrowed from friends, and money
+  lent to friends — each debt carries a counterparty + settled flag with
+  one-click Settle/Reopen, and the dashboard shows a live Balance + You-owe +
+  Owed-to-you summary.
+- Dark mode is a smooth matte-black Batman-night, and the hero landscape
+  transforms into a night scene (moon + twinkling stars + dark mountain
+  silhouettes) when dark mode is on.
+- Screenshots: v5-dashboard-light.png, v5-dashboard-night.png,
+  v5-money-light.png.
