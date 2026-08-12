@@ -91,6 +91,10 @@
   --pixel-line: oklch(0.22 0.02 60);          /* ink outline (light mode) */
   --pixel-shadow: oklch(0.22 0.02 60);
   --pixel-line-soft: oklch(0.34 0.02 60);
+
+  /* Hero foreground — always light so text is readable on the coloured hero
+     in BOTH themes (dawn gradient in light, night sky in dark). */
+  --hero-fg: oklch(0.985 0.005 85);
 }
 
 .dark {
@@ -131,6 +135,9 @@
   --pixel-line: oklch(0.34 0.008 255);          /* soft slate line (not harsh) */
   --pixel-shadow: oklch(0.04 0.003 260);        /* near-pure black for depth */
   --pixel-line-soft: oklch(0.24 0.006 260);
+
+  /* Hero foreground stays light on the dark night sky. */
+  --hero-fg: oklch(0.96 0.006 250);
 }
 
 @layer base {

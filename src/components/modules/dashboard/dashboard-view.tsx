@@ -163,8 +163,12 @@ export function DashboardView({
     // --- Daily overview (dynamic "today" stats) ---
     const tasksDueToday = pending.filter((t) => t.dueDate === today).length;
     const weekStart = daysFromTodayISO(-7);
+    // "Spent this week" = real expenses only (not income / borrow / lend).
     const spentThisWeek = expenses
-      .filter((e) => e.date >= weekStart && e.date <= today)
+      .filter(
+        (e) =>
+          e.kind === "expense" && e.date >= weekStart && e.date <= today
+      )
       .reduce((s, e) => s + e.amount, 0);
     const notesUpdatedToday = notes.filter(
       (n) => n.updatedAt.slice(0, 10) === today
@@ -241,9 +245,9 @@ export function DashboardView({
       {/* ---------- Pixelscape hero (animated parallax landscape) ---------- */}
       <div className="relative overflow-hidden border-2 border-[var(--pixel-line)] pixel-shadow">
         <PixelLandscape />
-        <div className="relative flex flex-col gap-4 p-6 text-background sm:p-7 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex flex-col gap-4 p-6 text-[var(--hero-fg)] sm:p-7 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-2.5">
-            <div className="inline-flex items-center gap-2 border-2 border-[var(--pixel-line)] bg-background px-3 py-1 text-xs font-semibold text-foreground pixel-shadow-sm">
+            <div className="inline-flex items-center gap-2 border-2 border-[var(--pixel-line)] bg-[var(--hero-fg)] px-3 py-1 text-xs font-semibold text-[var(--pixel-line)] pixel-shadow-sm">
               <CalendarDays className="h-3.5 w-3.5 text-primary" />
               {todayLabel}
             </div>
@@ -251,7 +255,7 @@ export function DashboardView({
               {greeting()}, {studentName}
             </h1>
             {/* Dynamic "Today's Overview" */}
-            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-background/90">
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-[var(--hero-fg)]/85">
               <span className="flex items-center gap-1.5">
                 <span className="font-display text-base">{stats.tasksDueToday}</span>
                 task{stats.tasksDueToday === 1 ? "" : "s"} due today
@@ -272,7 +276,7 @@ export function DashboardView({
               </span>
             </div>
             {stats.studyBehindCount > 0 ? (
-              <p className="text-xs font-semibold text-background/95">
+              <p className="text-xs font-semibold text-[var(--hero-fg)]">
                 ⚠ {stats.studyBehindCount} study plan
                 {stats.studyBehindCount === 1 ? "" : "s"} behind — log a session to catch up.
               </p>
@@ -281,14 +285,14 @@ export function DashboardView({
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              className="bg-background text-foreground hover:bg-background/90"
+              className="bg-[var(--hero-fg)] text-[var(--pixel-line)] hover:bg-[var(--hero-fg)]/90"
               onClick={() => onNavigate("tasks")}
             >
               <ListTodo className="h-4 w-4" /> Add task
             </Button>
             <Button
               size="sm"
-              className="bg-background text-foreground hover:bg-background/90"
+              className="bg-[var(--hero-fg)] text-[var(--pixel-line)] hover:bg-[var(--hero-fg)]/90"
               onClick={() => onNavigate("expenses")}
             >
               <Wallet className="h-4 w-4" /> Add expense

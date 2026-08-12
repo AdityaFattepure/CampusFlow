@@ -995,3 +995,54 @@ Stage Summary:
   silhouettes) when dark mode is on.
 - Screenshots: v5-dashboard-light.png, v5-dashboard-night.png,
   v5-money-light.png.
+
+---
+Task ID: V6
+Agent: main (orchestrator)
+Task: Fix three user-reported bugs — (1) wrong "spent this week" on dashboard
+hero (counted income/borrow/lend), (2) borrow/lend balance logic incorrect,
+(3) dark-mode hero text invisible (text-background = matte black on night sky).
+
+Work Log:
+- Issue 1 (spentThisWeek): dashboard-view.tsx `spentThisWeek` was summing ALL
+  transactions in the last 7 days. Added `e.kind === "expense"` filter so it
+  only counts real expenses. Verified: demo data now shows ₹4,500 (not the
+  inflated ₹2,033 that included income/borrow/lend).
+- Issue 2 (balance logic): rewrote summarizeMoney() in format.ts to implement
+  the user's exact mental model:
+    • income: +balance
+    • expense: −balance
+    • lend (unsettled): −balance  (money left your pocket)
+    • lend (settled): 0 net       (money returned — no longer subtracts)
+    • borrow (unsettled): 0       (received cash = owed debt)
+    • borrow (settled): −balance  (you repaid from your pocket)
+  New formula: balance = incomeTotal − expenseTotal − unsettledLends −
+  settledBorrows. Added repaidBorrows + repaidLends to MoneySummary for
+  transparency. Verified with demo data: balance = 6500 − 4500 − 150 (Priya
+  unsettled lend) = ₹1,850; settling Priya's lend returned ₹150 → balance
+  ₹2,000; "Owed to you" dropped to ₹0. Borrow from Rahul (unsettled ₹300)
+  correctly has zero effect on balance.
+- Issue 3 (dark hero text): the hero used `text-background` for the greeting
+  + overview, which in dark mode resolves to the matte-black background token
+  → invisible on the dark night sky. Added a new `--hero-fg` CSS token (light
+  in BOTH themes: oklch(0.985) light / oklch(0.96) dark) and replaced all
+  `text-background[/90|/95]` + the hero buttons' `bg-background text-foreground`
+  + the date chip with `text-[var(--hero-fg)]` / `bg-[var(--hero-fg)]`. Verified:
+  dark-mode hero <h1> computed color = lab(98.28 …) near-white, fully readable.
+- Verification (Agent Browser):
+  * Clean reload: no errors.
+  * Demo data: "spent this week" = ₹4,500 (expenses only, fixed). Balance =
+    ₹1,850 (income − expense − unsettled lend). You owe ₹300 (Rahul), Owed to
+    you ₹150 (Priya).
+  * Settled Priya's lend → balance ₹1,850 → ₹2,000 (+150 returned), Owed to
+    you → ₹0. ✓
+  * Dark mode: hero h1 color = lab(98.28) near-white; VLM confirms "greeting
+    text clearly readable in bright white font… stats highly legible… buttons
+    clearly visible… night landscape (moon/stars/dark mountains) present."
+  * `bun run lint` clean. No console/page errors.
+
+Stage Summary:
+- All three bugs fixed and verified. "Spent this week" now counts expenses
+  only; the balance correctly models lend (subtract until repaid) and borrow
+  (no change until you repay); dark-mode hero text is now light and readable on
+  the night sky. Screenshot: v6-dashboard-night-fixed.png.

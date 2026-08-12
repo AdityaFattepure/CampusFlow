@@ -212,8 +212,15 @@ export const INCOME_CATEGORY_STYLES: Record<IncomeCategory, string> = {
 };
 
 export interface MoneySummary {
-  /** income - expense (settled debts don't count; unsettled borrow/lend are
-   * tracked separately as youOwe / owedToYou). */
+  /**
+   * Cash balance following the user's mental model:
+   *  - income: +
+   *  - expense: −
+   *  - lend (unsettled): −  (money left your pocket)
+   *  - lend (settled): 0 net (went out, came back) — handled by NOT counting settled lends
+   *  - borrow (unsettled): 0  (received cash = owed debt)
+   *  - borrow (settled): −  (you repaid from your pocket)
+   */
   balance: number;
   incomeTotal: number;
   expenseTotal: number;
@@ -221,6 +228,10 @@ export interface MoneySummary {
   youOwe: number;
   /** money friends still owe you (unsettled lend). */
   owedToYou: number;
+  /** money you've already repaid (settled borrows) — reduces balance. */
+  repaidBorrows: number;
+  /** money friends have repaid you (settled lends) — no net balance effect. */
+  repaidLends: number;
   /** net debt = youOwe - owedToYou (>0 means you're net in debt). */
   netDebt: number;
 }
@@ -234,18 +245,30 @@ export function summarizeMoney(
   let expenseTotal = 0;
   let youOwe = 0;
   let owedToYou = 0;
+  let repaidBorrows = 0; // settled borrows: money you paid back → reduces balance
+  let repaidLends = 0; // settled lends: money returned to you → no net effect
   for (const t of tx) {
     if (t.kind === "income") incomeTotal += t.amount;
     else if (t.kind === "expense") expenseTotal += t.amount;
-    else if (t.kind === "borrow" && !t.settled) youOwe += t.amount;
-    else if (t.kind === "lend" && !t.settled) owedToYou += t.amount;
+    else if (t.kind === "borrow") {
+      if (!t.settled) youOwe += t.amount;
+      else repaidBorrows += t.amount; // you repaid → cash left
+    } else if (t.kind === "lend") {
+      if (!t.settled) owedToYou += t.amount; // cash is out → reduces balance
+      else repaidLends += t.amount; // cash came back → no net effect
+    }
   }
+  // balance = income − expenses − money currently out on loan − money repaid
+  const balance =
+    incomeTotal - expenseTotal - owedToYou - repaidBorrows;
   return {
-    balance: incomeTotal - expenseTotal,
+    balance,
     incomeTotal,
     expenseTotal,
     youOwe,
     owedToYou,
+    repaidBorrows,
+    repaidLends,
     netDebt: youOwe - owedToYou,
   };
 }
